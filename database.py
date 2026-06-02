@@ -78,6 +78,62 @@ def init_db():
         )
     ''')
 
+    try:
+        cursor.execute('ALTER TABLE motoristas ADD COLUMN data_expiracao TEXT')
+    except Exception:
+        pass
+
+    # Tabela de Veículos (BBMGuard 2.0)
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS veiculos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            placa TEXT NOT NULL,
+            tipo_veiculo TEXT,
+            status_sil TEXT DEFAULT 'Não consultado',
+            validade TEXT,
+            ultima_posicao TEXT,
+            status_checklist TEXT,
+            data_consulta TEXT,
+            empresa_id INTEGER,
+            UNIQUE(placa, empresa_id),
+            FOREIGN KEY (empresa_id) REFERENCES empresas (id)
+        )
+    ''')
+
+    try:
+        cursor.execute('ALTER TABLE motoristas ADD COLUMN data_expiracao TEXT')
+    except Exception:
+        pass
+
+    # Tabela de Veículos (BBMGuard 2.0)
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS veiculos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            placa TEXT NOT NULL,
+            tipo_veiculo TEXT,
+            status_sil TEXT DEFAULT 'Não consultado',
+            validade TEXT,
+            ultima_posicao TEXT,
+            status_checklist TEXT,
+            data_consulta TEXT,
+            empresa_id INTEGER,
+            rastreadores TEXT,
+            segundo_rastreador TEXT,
+            UNIQUE(placa, empresa_id),
+            FOREIGN KEY (empresa_id) REFERENCES empresas (id)
+        )
+    ''')
+    
+    try:
+        cursor.execute('ALTER TABLE veiculos ADD COLUMN rastreadores TEXT')
+    except Exception:
+        pass
+    try:
+        cursor.execute('ALTER TABLE veiculos ADD COLUMN segundo_rastreador TEXT')
+    except Exception:
+        pass
+
+
     # Tabela de Ocorrências (Mantida para Fase 2)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS ocorrencias (

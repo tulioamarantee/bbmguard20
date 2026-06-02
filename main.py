@@ -2,6 +2,7 @@ import streamlit as st
 from datetime import datetime, timedelta
 import services
 import styles
+import re
 from database import init_db
 
 # Configuração da página
@@ -58,17 +59,17 @@ def main_app():
         # Definir opções de navegação de acordo com o papel do usuário
         role = (user.get('role') or '').lower()
         if role == 'portaria':
-            # Portaria: somente consulta
-            opcoes = ["Controle de Portaria"]
+            # Portaria: consulta motoristas e veículos
+            opcoes = ["Controle de Portaria", "Controle de Veículos"]
         elif role == 'supervisor':
-            # Supervisor: portaria + configurações (gerenciar usuários)
-            opcoes = ["Controle de Portaria", "Configurações"]
+            # Supervisor: portaria + veículos + configurações
+            opcoes = ["Controle de Portaria", "Controle de Veículos", "Configurações"]
         elif role.startswith('admin'):
             # Admin: acesso total
-            opcoes = ["Dashboard", "Controle de Portaria", "Configurações"]
+            opcoes = ["Dashboard", "Controle de Portaria", "Controle de Veículos", "Configurações"]
         else:
-            # Papel desconhecido: somente portaria
-            opcoes = ["Controle de Portaria"]
+            # Papel desconhecido: portaria
+            opcoes = ["Controle de Portaria", "Controle de Veículos"]
         
         menu = st.radio("Navegação", opcoes)
         
@@ -90,6 +91,8 @@ def main_app():
             render_dashboard(user)
     elif menu == "Controle de Portaria":
         render_motoristas(user)
+    elif menu == "Controle de Veículos":
+        render_veiculos(user)
     elif menu == "Configurações":
         render_config(user)
 
@@ -245,21 +248,25 @@ def render_modal_cadastro_sil(user):
             elif not services.validar_cpf(cpf):
                 st.error("❌ CPF Inválido.")
             else:
-                existe, valida, data_exp, nome_ex = services.verificar_validade_existente(cpf, user['empresa_id'])
+                existe, valida, data_exp, nome_ex, status_sil, data_consulta_sil = services.verificar_validade_existente(cpf, user['empresa_id'])
                 if existe:
-                    st.warning(f"⚠️ {nome_ex} já cadastrado.")
+                    st.warning(f"⚠️ {nome_ex} já está cadastrado no sistema.")
+                    if status_sil and data_consulta_sil:
+                        styles.render_sil_status(status_sil, data_consulta_sil)
                 else:
                     fazer_consulta_sil(cpf, user)
     
     st.divider()
     st.subheader("📁 Importação em Massa")
-    uploaded_file = st.file_uploader("Arquivo Excel ou PDF com CPFs", type=["xlsx", "xls", "pdf"])
+    uploaded_file = st.file_uploader("Arquivo Excel, PDF ou TXT com CPFs", type=["xlsx", "xls", "pdf", "txt"])
     if uploaded_file:
         if st.button("🚀 Iniciar Importação"):
             with st.spinner("Processando..."):
                 ext = uploaded_file.name.split('.')[-1].lower()
                 if ext == 'pdf':
                     sucesso, msg = services.importar_motoristas_pdf(uploaded_file, user['empresa_id'], user['nome'])
+                elif ext == 'txt':
+                    sucesso, msg = services.importar_motoristas_txt(uploaded_file, user['empresa_id'], user['nome'])
                 else:
                     sucesso, msg = services.importar_motoristas_excel(uploaded_file, user['empresa_id'], user['nome'])
                     
@@ -333,6 +340,147 @@ def render_motoristas(user):
                             else: st.error(msg)
     else:
         if busca: st.warning("Motorista não encontrado.")
+
+def render_veiculos(user):
+    st.header("Controle de Veículos")
+    
+    col_t, col_btn = st.columns([3, 1])
+    abrir_modal = False
+    with col_btn:
+        if st.button("➕ Novo Cadastro de Veículo", use_container_width=True):
+            abrir_modal = True
+            
+    if abrir_modal:
+        render_modal_cadastro_veiculo(user)
+            
+    busca = st.text_input("🔎 Consultar Placa")
+    
+    # Se houver busca de placa, atualiza os dados direto do SIL primeiro
+    if busca:
+        busca_limpa = busca.upper().replace("-", "").strip()
+        # Expressão regular simples para validar placa (padrão antigo ABC-1234 ou Mercosul ABC1D23)
+        if re.match(r"^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$", busca_limpa):
+            # Procura se o veículo já existe cadastrado no banco de dados local
+            conn = services.get_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT id FROM veiculos WHERE placa = ? AND empresa_id = ?", (busca_limpa, user['empresa_id']))
+            veiculo_local = cursor.fetchone()
+            conn.close()
+            
+            with st.spinner(f"Consultando SIL para placa {busca_limpa}..."):
+                if veiculo_local:
+                    # Se já existia, atualiza os dados em tempo real na base
+                    services.atualizar_sil_veiculo(veiculo_local['id'], busca_limpa, user['empresa_id'], user['nome'])
+                else:
+                    # Se não existia, consulta o SIL e cadastra o veículo automaticamente
+                    res_sil = services.consultar_opentech_veiculo(busca_limpa, "BUSCA_DIRETA", usuario_nome=user['nome'])
+                    if "Erro" not in res_sil['status']:
+                        services.cadastrar_veiculo(res_sil, user['empresa_id'])
+                        
+    veiculos = services.listar_veiculos(user['empresa_id'], busca)
+    
+    if veiculos:
+        for v in veiculos:
+            # Extrair validade do checklist para exibição no título (Ex: "Aprovado (Até 06/07/2026)" -> "Até 06/07/2026")
+            checklist_expira = "N/I"
+            checklist_bruto = v.get('status_checklist', 'N/I')
+            if "Até" in checklist_bruto:
+                match = re.search(r"Até\s+([^)]+)", checklist_bruto)
+                if match:
+                    checklist_expira = match.group(1).strip()
+            
+            # Formatar e organizar labels
+            validade_veic = services.formatar_data_validade(v['validade'])
+            rastreadores_label = v.get('rastreadores', 'N/I')
+            seg_rastreador = v.get('segundo_rastreador', 'Não possui')
+            
+            # Título resumido para a linha do expander
+            ultima_pos = v.get('ultima_posicao', 'N/I')
+            titulo_linha = (
+                f"🚗 {v['placa']} ({v['tipo_veiculo']}) | "
+                f"Última Pos: {ultima_pos} | "
+                f"Val. Veículo: {validade_veic} | "
+                f"Val. Checklist: {checklist_expira} | "
+                f"Rastreador: {rastreadores_label} | "
+                f"Secundário: {seg_rastreador}"
+            )
+            
+            with st.expander(titulo_linha):
+                col_det, col_upd = st.columns([2, 1])
+                with col_det:
+                    styles.render_sil_status(v['status_sil'], v['data_consulta'])
+                    st.markdown(f"**Última Posição:** {v['ultima_posicao']}")
+                    st.markdown(f"**Checklist:** {v['status_checklist']}")
+                    st.markdown(f"**Rastreadores:** {v.get('rastreadores', 'N/I')}")
+                    
+                    seg = v.get('segundo_rastreador', 'Não possui')
+                    if seg != "Não possui":
+                        st.markdown(f"**Tecnologia autorizada p/ rastreador Secundário:** :green[{seg}]")
+                    else:
+                        st.markdown(f"**Tecnologia autorizada p/ rastreador Secundário:** :red[{seg}]")
+                
+                with col_upd:
+                    if st.button("🔄 Atualizar SIL", key=f"upd_v_{v['id']}", use_container_width=True):
+                        with st.spinner("Atualizando..."):
+                            ok, msg = services.atualizar_sil_veiculo(v['id'], v['placa'], user['empresa_id'], user['nome'])
+                            if ok: st.success(msg); st.rerun()
+                            else: st.error(msg)
+    else:
+        if busca: st.warning("Veículo não encontrado.")
+
+@st.dialog("Novo Cadastro de Veículo (SIL)")
+def render_modal_cadastro_veiculo(user):
+    with st.form("cadastro_veiculo_modal", clear_on_submit=True):
+        placa = st.text_input("Informe a Placa do Veículo")
+        st.caption("Pressione 'Consultar e Cadastrar' para incluir. O campo será limpo para a próxima placa.")
+        submit_sil = st.form_submit_button("Consultar e Cadastrar", use_container_width=True)
+        
+        if submit_sil:
+            if not placa:
+                st.error("A placa é obrigatória.")
+            else:
+                existe, validade, status_sil, data_consulta_sil = services.verificar_validade_existente_veiculo(placa, user['empresa_id'])
+                if existe:
+                    st.warning(f"⚠️ A placa {placa.upper()} já está cadastrada no sistema.")
+                    if status_sil and data_consulta_sil:
+                        styles.render_sil_status(status_sil, data_consulta_sil)
+                else:
+                    with st.spinner("Consultando Opentech..."):
+                        res = services.consultar_opentech_veiculo(placa, "TOKEN", usuario_nome=user['nome'])
+                        if "Erro" in res['status']:
+                            st.error(f"Erro na Opentech: {res['status']}")
+                        else:
+                            st.write(f"**Tipo:** {res['tipo_veiculo']}")
+                            styles.render_sil_status(res['status'], res['data_consulta'])
+                            st.markdown(f"**Última Posição:** {res['ultima_posicao']}")
+                            st.markdown(f"**Checklist:** {res['checklist']}")
+                            
+                            sucesso, msg = services.cadastrar_veiculo(res, user['empresa_id'])
+                            if sucesso: 
+                                st.markdown(f"<small style='color: #666;'>✅ Veículo {res['placa']} incluído.</small>", unsafe_allow_html=True)
+                            else: 
+                                st.error(msg)
+                                
+    st.divider()
+    st.subheader("📁 Importação em Massa (Placas)")
+    uploaded_file = st.file_uploader("Arquivo Excel, PDF ou TXT com Placas", type=["xlsx", "xls", "pdf", "txt"], key="upload_veiculos")
+    if uploaded_file:
+        if st.button("🚀 Iniciar Importação de Veículos"):
+            with st.spinner("Processando..."):
+                ext = uploaded_file.name.split('.')[-1].lower()
+                if ext == 'pdf':
+                    sucesso, msg = services.importar_veiculos_pdf(uploaded_file, user['empresa_id'], user['nome'])
+                elif ext == 'txt':
+                    sucesso, msg = services.importar_veiculos_txt(uploaded_file, user['empresa_id'], user['nome'])
+                else:
+                    sucesso, msg = services.importar_veiculos_excel(uploaded_file, user['empresa_id'], user['nome'])
+                    
+                if sucesso:
+                    st.success("Importação concluída com sucesso!")
+                    with st.expander("📋 Ver Detalhes da Importação", expanded=True):
+                        st.markdown(msg)
+                else: 
+                    st.error(msg)
 
 # --- EXECUÇÃO ---
 if not st.session_state.autenticado:

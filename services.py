@@ -143,13 +143,13 @@ def listar_motoristas(empresa_id, busca=""):
 def verificar_validade_existente(cpf, empresa_id):
     """
     Verifica se o motorista já existe e se a consulta SIL ainda é válida.
-    Retorna (existe, valida, data_expiracao)
+    Retorna (existe, valida, data_expiracao, nome, status_sil, data_consulta_sil)
     """
     cpf_limpo = ''.join(filter(str.isdigit, cpf))
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute('''
-        SELECT data_expiracao, nome FROM motoristas 
+        SELECT data_expiracao, nome, status_sil, data_consulta_sil FROM motoristas 
         WHERE cpf = ? AND empresa_id = ?
     ''', (cpf_limpo, empresa_id))
     res = cursor.fetchone()
@@ -157,19 +157,21 @@ def verificar_validade_existente(cpf, empresa_id):
     
     if res:
         data_exp = res['data_expiracao']
+        status_sil = res['status_sil']
+        data_consulta_sil = res['data_consulta_sil']
         if not data_exp or data_exp == "N/I":
-            return True, False, "N/I", res['nome']
+            return True, False, "N/I", res['nome'], status_sil, data_consulta_sil
         
         try:
             data_limpa = data_exp.split('T')[0]
             dt_exp = datetime.strptime(data_limpa, "%Y-%m-%d")
             if dt_exp > datetime.now():
-                return True, True, dt_exp.strftime("%d/%m/%Y"), res['nome']
+                return True, True, dt_exp.strftime("%d/%m/%Y"), res['nome'], status_sil, data_consulta_sil
         except:
             pass
-        return True, False, data_exp, res['nome']
+        return True, False, data_exp, res['nome'], status_sil, data_consulta_sil
     
-    return False, False, None, None
+    return False, False, None, None, None, None
 
 def cadastrar_motorista(dados, empresa_id):
     conn = get_connection()
@@ -547,6 +549,134 @@ def importar_motoristas_pdf(file, empresa_id, usuario_nome):
     except Exception as e:
         return False, f"Erro ao processar PDF: {e}"
 
+def importar_motoristas_txt(file, empresa_id, usuario_nome):
+    """
+    Processa arquivo TXT, busca CPFs via Regex, consulta SIL e cadastra motoristas.
+    """
+    try:
+        texto = file.read().decode('utf-8', errors='ignore')
+        
+        # Regex para buscar padrões de CPF
+        padrao_cpf = re.compile(r'\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b')
+        cpfs_encontrados = padrao_cpf.findall(texto)
+        
+        if not cpfs_encontrados:
+            return False, "Nenhum CPF encontrado no arquivo TXT."
+            
+        # Limpar e remover duplicados
+        cpfs = []
+        for cpf in cpfs_encontrados:
+            cpf_limpo = ''.join(filter(str.isdigit, cpf)).zfill(11)
+            if len(cpf_limpo) == 11 and cpf_limpo not in cpfs:
+                cpfs.append(cpf_limpo)
+                
+        importados = 0
+        erros = 0
+        duplicados = 0
+        validados = 0
+        bloqueados = 0
+        vencidos = 0
+        detalhes_processamento = []
+        
+        hoje = datetime.now()
+        
+        # Consultar Opentech em paralelo usando ThreadPoolExecutor
+        resultados_opentech = {}
+        def consultar_paralelo(c):
+            return c, consultar_opentech(c, "TOKEN", usuario_nome)
+            
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            futures = [executor.submit(consultar_paralelo, c) for c in cpfs]
+            for future in futures:
+                c, res = future.result()
+                resultados_opentech[c] = res
+                
+        # Gravar no Banco de Dados SQLite sequencialmente
+        for cpf_limpo in cpfs:
+            res = resultados_opentech[cpf_limpo]
+            if "Erro" not in res['status']:
+                status_sil = res['status']
+                status_norm = str(status_sil).strip().lower()
+                
+                if status_norm == "validado":
+                    validados += 1
+                    status_emoji = "✅"
+                else:
+                    bloqueados += 1
+                    status_emoji = "❌"
+                
+                validade = res['validade']
+                validade_status = "N/I"
+                if validade and validade != "N/I":
+                    try:
+                        data_limpa = validade.split('T')[0]
+                        dt_exp = datetime.strptime(data_limpa, "%Y-%m-%d")
+                        if dt_exp < hoje:
+                            vencidos += 1
+                            validade_status = "❌ Vencido"
+                        else:
+                            validade_status = f"📅 Vence em {dt_exp.strftime('%d/%m/%Y')}"
+                    except Exception:
+                        validade_status = validade
+                        
+                dados = {
+                    'nome': res['nome'], 'cpf': cpf_limpo, 'cnh': res['cnh'], 
+                    'categoria': res['categoria'],
+                    'status_sil': res['status'],
+                    'data_consulta_sil': res['data_consulta'],
+                    'validade': res['validade']
+                }
+                
+                sucesso, _ = cadastrar_motorista(dados, empresa_id)
+                tipo_import = "Novo"
+                if sucesso:
+                    importados += 1
+                else:
+                    conn = get_connection()
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT id FROM motoristas WHERE cpf = ? AND empresa_id = ?", (cpf_limpo, empresa_id))
+                    mot = cursor.fetchone()
+                    conn.close()
+                    
+                    if mot:
+                        ok, _ = atualizar_sil_motorista(mot[0], cpf_limpo, empresa_id, usuario_nome)
+                        if ok: 
+                            duplicados += 1
+                            tipo_import = "Atualizado"
+                        else: 
+                            erros += 1
+                            tipo_import = "Falha"
+                    else:
+                        erros += 1
+                        tipo_import = "Falha"
+                        
+                detalhes_processamento.append(
+                    f"- **{res['nome']}** ({cpf_limpo}) | SIL: {status_emoji} {res['status']} | Validade: {validade_status} | ({tipo_import})"
+                )
+            else:
+                erros += 1
+                detalhes_processamento.append(f"- CPF **{cpf_limpo}** | ❌ Erro Opentech: {res['status']}")
+        
+        detalhes_str = "\n".join(detalhes_processamento)
+        msg = (
+            f"Importação de TXT concluída com sucesso!\n\n"
+            f"📊 **Resumo do Processamento:**\n"
+            f"- **Total de CPFs no TXT:** {len(cpfs)}\n"
+            f"- **Novos cadastrados:** {importados}\n"
+            f"- **Atualizados (já cadastrados):** {duplicados}\n"
+            f"- **Falhas no processamento:** {erros}\n\n"
+            f"🔍 **Status SIL Opentech:**\n"
+            f"- ✅ **Validados:** {validados}\n"
+            f"- ❌ **Bloqueados/Outros:** {bloqueados}\n"
+            f"- 📅 **Vencidos:** {vencidos}\n\n"
+            f"📋 **Lista de Motoristas Processados:**\n"
+            f"{detalhes_str}"
+        )
+        return True, msg
+    except Exception as e:
+        return False, f"Erro ao processar TXT: {e}"
+
+
 def atualizar_sil_motorista(motorista_id, cpf, empresa_id, usuario_nome):
     """
     Força uma nova consulta na Opentech e atualiza o motorista existente.
@@ -816,3 +946,295 @@ def listar_historico_acessos(empresa_id, limite=10):
     acessos = [dict(row) for row in cursor.fetchall()]
     conn.close()
     return acessos
+
+# --- GESTÃO DE VEÍCULOS ---
+
+def consultar_opentech_veiculo(placa, token_empresa, usuario_nome="Sistema"):
+    """
+    Integração com a API SIL Opentech para veículos.
+    """
+    placa_limpa = placa.upper().replace("-", "").strip()
+    sil_logger.info(f"REQ VEICULO | Usuário: {usuario_nome} | Placa: {placa_limpa}")
+    try:
+        resultado = soap_client.consultar_veiculo(placa_limpa)
+        if "error" in resultado:
+            return {"placa": placa_limpa, "status": f"Erro: {resultado['error']}", "data_consulta": datetime.now().strftime("%d/%m/%Y %H:%M"), "validade": "N/I"}
+
+        return {
+            "placa": resultado.get("placa", placa_limpa),
+            "tipo_veiculo": resultado.get("tipo_veiculo", "N/I"),
+            "status": resultado.get("status_label", "Sem Informação"),
+            "data_consulta": datetime.now().strftime("%d/%m/%Y %H:%M"),
+            "validade": resultado.get("data_expiracao", "N/I"),
+            "ultima_posicao": resultado.get("ultima_posicao", "N/I"),
+            "checklist": resultado.get("checklist", "N/I"),
+            "rastreadores": resultado.get("rastreadores", "N/I"),
+            "segundo_rastreador": resultado.get("segundo_rastreador", "Não possui")
+        }
+    except Exception as e:
+        sil_logger.exception(f"FATAL | Erro ao consultar Opentech para Placa {placa_limpa}")
+        return {"placa": placa_limpa, "status": "Erro de Conexão", "data_consulta": datetime.now().strftime("%d/%m/%Y %H:%M"), "validade": "N/I"}
+
+def listar_veiculos(empresa_id, busca=""):
+    conn = get_connection()
+    cursor = conn.cursor()
+    query = "SELECT * FROM veiculos WHERE empresa_id = ?"
+    params = [empresa_id]
+    
+    if busca:
+        busca_limpa = busca.upper().replace("-", "").strip()
+        query += " AND placa LIKE ?"
+        params.append(f"%{busca_limpa}%")
+        
+    query += " ORDER BY id DESC"
+    
+    cursor.execute(query, params)
+    veiculos = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return veiculos
+
+def verificar_validade_existente_veiculo(placa, empresa_id):
+    placa_limpa = placa.upper().replace("-", "").strip()
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT validade, status_sil, data_consulta FROM veiculos 
+        WHERE placa = ? AND empresa_id = ?
+    ''', (placa_limpa, empresa_id))
+    res = cursor.fetchone()
+    conn.close()
+    
+    if res:
+        return True, res['validade'], res['status_sil'], res['data_consulta']
+    return False, None, None, None
+
+def cadastrar_veiculo(dados, empresa_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute('''
+            INSERT INTO veiculos (placa, tipo_veiculo, status_sil, validade, ultima_posicao, status_checklist, data_consulta, empresa_id, rastreadores, segundo_rastreador)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (dados['placa'], dados['tipo_veiculo'], dados['status'], 
+              dados['validade'], dados['ultima_posicao'], dados['checklist'], dados['data_consulta'], empresa_id, dados.get('rastreadores', 'N/I'), dados.get('segundo_rastreador', 'Não possui')))
+        conn.commit()
+        return True, f"Veículo placa {dados['placa']} cadastrado com sucesso!"
+    except sqlite3.IntegrityError:
+        return False, "Erro: Este veículo já está cadastrado nesta empresa."
+    except Exception as e:
+        return False, f"Erro ao cadastrar: {str(e)}"
+    finally:
+        conn.close()
+
+def atualizar_sil_veiculo(veiculo_id, placa, empresa_id, usuario_nome):
+    res = consultar_opentech_veiculo(placa, "FORCE", usuario_nome)
+    if "Erro" in res['status']:
+        return False, res['status']
+    
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute('''
+            UPDATE veiculos 
+            SET tipo_veiculo = ?, status_sil = ?, validade = ?, 
+                ultima_posicao = ?, status_checklist = ?, data_consulta = ?,
+                rastreadores = ?, segundo_rastreador = ?
+            WHERE id = ? AND empresa_id = ?
+        ''', (res['tipo_veiculo'], res['status'], res['validade'], 
+              res['ultima_posicao'], res['checklist'], res['data_consulta'], 
+              res.get('rastreadores', 'N/I'), res.get('segundo_rastreador', 'Não possui'), veiculo_id, empresa_id))
+        conn.commit()
+        return True, f"SIL Atualizado com sucesso para placa {placa}!"
+    except Exception as e:
+        return False, str(e)
+    finally:
+        conn.close()
+
+def importar_veiculos_excel(file, empresa_id, usuario_nome):
+    try:
+        df = pd.read_excel(file)
+        col_placa = None
+        for col in df.columns:
+            if 'placa' in str(col).lower():
+                col_placa = col
+                break
+        
+        if not col_placa:
+            # Fallback, extract from entire text of dataframe
+            texto = df.to_string()
+            padrao_placa = re.compile(r'\b[A-Za-z]{3}-?[0-9][A-Za-z0-9][0-9]{2}\b')
+            placas_encontradas = padrao_placa.findall(texto)
+        else:
+            placas_encontradas = df[col_placa].dropna().astype(str).tolist()
+            
+        return processar_lote_veiculos(placas_encontradas, empresa_id, usuario_nome, "Excel")
+    except Exception as e:
+        return False, f"Erro ao processar Excel: {e}"
+
+def importar_veiculos_pdf(file, empresa_id, usuario_nome):
+    try:
+        doc = fitz.open(stream=file.read(), filetype="pdf")
+        texto = ""
+        for page in doc:
+            texto += page.get_text()
+            
+        padrao_placa = re.compile(r'\b[A-Za-z]{3}-?[0-9][A-Za-z0-9][0-9]{2}\b')
+        placas_encontradas = padrao_placa.findall(texto)
+        return processar_lote_veiculos(placas_encontradas, empresa_id, usuario_nome, "PDF")
+    except Exception as e:
+        return False, f"Erro ao processar PDF: {e}"
+
+def importar_veiculos_txt(file, empresa_id, usuario_nome):
+    try:
+        texto = file.read().decode('utf-8', errors='ignore')
+        padrao_placa = re.compile(r'\b[A-Za-z]{3}-?[0-9][A-Za-z0-9][0-9]{2}\b')
+        placas_encontradas = padrao_placa.findall(texto)
+        return processar_lote_veiculos(placas_encontradas, empresa_id, usuario_nome, "TXT")
+    except Exception as e:
+        return False, f"Erro ao processar TXT: {e}"
+
+def processar_lote_veiculos(placas_encontradas, empresa_id, usuario_nome, origem):
+    if not placas_encontradas:
+        return False, f"Nenhuma placa encontrada no arquivo {origem}."
+        
+    placas_limpas = []
+    for p in placas_encontradas:
+        p_limpa = str(p).upper().replace("-", "").strip()
+        if len(p_limpa) == 7 and p_limpa not in placas_limpas:
+            placas_limpas.append(p_limpa)
+            
+    if not placas_limpas:
+        return False, f"Nenhuma placa válida encontrada no {origem}."
+        
+    importados = 0
+    erros = 0
+    duplicados = 0
+    validados = 0
+    bloqueados = 0
+    vencidos = 0
+    detalhes_processamento = []
+    
+    hoje = datetime.now()
+    
+    resultados_opentech = {}
+    def consultar_paralelo(p):
+        return p, consultar_opentech_veiculo(p, "TOKEN", usuario_nome)
+        
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = [executor.submit(consultar_paralelo, p) for p in placas_limpas]
+        for future in futures:
+            p, res = future.result()
+            resultados_opentech[p] = res
+            
+    for placa in placas_limpas:
+        res = resultados_opentech[placa]
+        if "Erro" not in res['status']:
+            status_sil = res['status']
+            status_norm = str(status_sil).strip().lower()
+            
+            if status_norm == "liberado":
+                validados += 1
+                status_emoji = "✅"
+            else:
+                bloqueados += 1
+                status_emoji = "❌"
+                
+            # --- Lógica de Validação da Última Posição (menos de 4 horas) ---
+            posicao_bruta = res.get('ultima_posicao', 'N/I')
+            posicao_emoji = "⚠️"
+            if posicao_bruta and posicao_bruta != "N/I":
+                try:
+                    # Tenta converter a data da última posição (formato 'dd/mm/aaaa HH:MM:SS')
+                    dt_pos = datetime.strptime(posicao_bruta.split('.')[0], "%d/%m/%Y %H:%M:%S")
+                    diferenca = datetime.now() - dt_pos
+                    if diferenca <= timedelta(hours=4):
+                        posicao_emoji = "🟢 OK"
+                    else:
+                        posicao_emoji = "🔴 Atrasada (>4h)"
+                except Exception:
+                    pass
+            
+            # --- Validade do Checklist ---
+            checklist_expira = "N/I"
+            checklist_bruto = res.get('checklist', 'N/I')
+            if "Até" in checklist_bruto:
+                match = re.search(r"Até\s+([^)]+)", checklist_bruto)
+                if match:
+                    checklist_expira = match.group(1).strip()
+            else:
+                checklist_expira = checklist_bruto
+
+            rastreadores = res.get('rastreadores', 'N/I')
+            seg_rastreador = res.get('segundo_rastreador', 'Não possui')
+            
+            validade = res['validade']
+            validade_status = "N/I"
+            if validade and validade != "N/I":
+                try:
+                    # Suporta parsing de datas no formato 'dd/mm/aaaa HH:MM:SS' ou 'YYYY-MM-DD'
+                    if '-' in validade:
+                        data_limpa = validade.split('T')[0]
+                        dt_exp = datetime.strptime(data_limpa, "%Y-%m-%d")
+                    else:
+                        dt_exp = datetime.strptime(validade.split()[0], "%d/%m/%Y")
+                    
+                    if dt_exp < hoje:
+                        vencidos += 1
+                        validade_status = f"❌ Vencida ({dt_exp.strftime('%d/%m/%Y')})"
+                    else:
+                        validade_status = dt_exp.strftime('%d/%m/%Y')
+                except Exception:
+                    validade_status = validade
+                     
+            sucesso, _ = cadastrar_veiculo(res, empresa_id)
+            tipo_import = "Novo"
+            
+            if sucesso:
+                importados += 1
+            else:
+                conn = get_connection()
+                cursor = conn.cursor()
+                cursor.execute("SELECT id FROM veiculos WHERE placa = ? AND empresa_id = ?", (placa, empresa_id))
+                veic = cursor.fetchone()
+                conn.close()
+                
+                if veic:
+                    ok, _ = atualizar_sil_veiculo(veic[0], placa, empresa_id, usuario_nome)
+                    if ok:
+                        duplicados += 1
+                        tipo_import = "Atualizado"
+                    else:
+                        erros += 1
+                        tipo_import = "Falha"
+                else:
+                    erros += 1
+                    tipo_import = "Falha"
+                    
+            detalhes_processamento.append(
+                f"- **{res['placa']}** ({res['tipo_veiculo']}) | ({tipo_import})\n"
+                f"  * **Última Pos:** {posicao_emoji} ({posicao_bruta})\n"
+                f"  * **Val. Veículo:** {validade_status}\n"
+                f"  * **Val. Checklist:** {checklist_expira}\n"
+                f"  * **Rastreador:** {rastreadores}\n"
+                f"  * **Secundário:** {seg_rastreador}"
+            )
+        else:
+            erros += 1
+            detalhes_processamento.append(f"- Placa **{placa}** | ❌ Erro Opentech: {res['status']}")
+            
+    detalhes_str = "\n".join(detalhes_processamento)
+    msg = (
+        f"Importação de {origem} concluída com sucesso!\n\n"
+        f"📊 **Resumo do Processamento:**\n"
+        f"- **Total de Placas:** {len(placas_limpas)}\n"
+        f"- **Novos cadastrados:** {importados}\n"
+        f"- **Atualizados (já cadastrados):** {duplicados}\n"
+        f"- **Falhas no processamento:** {erros}\n\n"
+        f"🔍 **Status SIL Opentech:**\n"
+        f"- ✅ **Liberados:** {validados}\n"
+        f"- ❌ **Bloqueados/Outros:** {bloqueados}\n"
+        f"- 📅 **Vencidos:** {vencidos}\n\n"
+        f"📋 **Lista de Veículos Processados:**\n"
+        f"{detalhes_str}"
+    )
+    return True, msg
