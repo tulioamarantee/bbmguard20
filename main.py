@@ -6,7 +6,7 @@ import re
 from database import init_db
 
 # Configuração da página
-st.set_page_config(page_title="BBM Guard - Controle de Portaria", layout="wide", page_icon="🛡️")
+st.set_page_config(page_title="DLG Check - Controle de Portaria", layout="wide", page_icon="🛡️")
 
 # Inicializar Banco de Dados
 init_db()
@@ -18,7 +18,7 @@ if 'autenticado' not in st.session_state:
 
 def login_screen():
     import os
-    logo_path = "logo_bbm.png"
+    logo_path = "Logo_DLG_CHECK.png"
     
     # Aplicar estilo mesmo no login
     styles.apply_custom_branding()
@@ -28,7 +28,7 @@ def login_screen():
         if os.path.exists(logo_path):
             st.image(logo_path, use_container_width=True)
         else:
-            st.markdown("<h1 style='text-align: center;'>🛡️ BBM Guard</h1>", unsafe_allow_html=True)
+            st.markdown("<h1 style='text-align: center;'>🛡️ DLG Check</h1>", unsafe_allow_html=True)
             
         with st.form("login_form"):
             st.subheader("Acesso ao Sistema")

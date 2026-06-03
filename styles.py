@@ -3,7 +3,7 @@ import os
 
 def apply_custom_branding(user=None):
     """
-    Aplica o tema Light profissional para o BBM Guard.
+    Aplica o tema Light profissional para o DLG Check.
     """
     st.markdown("""
         <style>
@@ -50,9 +50,9 @@ def apply_custom_branding(user=None):
 
 def render_header(user=None):
     """
-    Cabeçalho BBM Guard com Logo.
+    Cabeçalho DLG Check com Logo.
     """
-    logo_path = "logo_bbm.png"
+    logo_path = "Logo_DLG_CHECK.png"
     
     col1, col2 = st.columns([1, 4])
     with col1:
@@ -61,7 +61,7 @@ def render_header(user=None):
         else:
             st.markdown("<h1 style='margin:0;'>🛡️</h1>", unsafe_allow_html=True)
     with col2:
-        st.markdown("<h2 style='margin:0;'>BBM Guard</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 style='margin:0;'>DLG Check</h2>", unsafe_allow_html=True)
         st.caption("Sistema de Controle de Acesso e Portaria")
 
 def render_sil_status(status, data_consulta):

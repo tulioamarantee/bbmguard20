@@ -83,7 +83,7 @@ def init_db():
     except Exception:
         pass
 
-    # Tabela de Veículos (BBMGuard 2.0)
+    # Tabela de Veículos (DLG Check)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS veiculos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -105,7 +105,7 @@ def init_db():
     except Exception:
         pass
 
-    # Tabela de Veículos (BBMGuard 2.0)
+    # Tabela de Veículos (DLG Check)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS veiculos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -177,20 +177,20 @@ def init_db():
 def seed_data(conn):
     cursor = conn.cursor()
     
-    # Inserir Empresa BBM
+    # Inserir Empresa DLG
     cursor.execute('''
         INSERT INTO empresas (nome, logo_url, cor_primaria, cor_secundaria)
         VALUES (?, ?, ?, ?)
-    ''', ('Grupo BBM', 'https://www.bbmlogistica.com.br/wp-content/themes/bbm/assets/images/logo.png', '#003366', '#FFFFFF'))
-    bbm_id = cursor.lastrowid
+    ''', ('DLG', '', '#004085', '#FFFFFF'))
+    dlg_id = cursor.lastrowid
 
-    # Inserir Usuários para BBM (Senha padrão: admin123)
+    # Inserir Usuários para DLG (Senha padrão: admin123)
     senha_hash = hashlib.sha256("admin123".encode()).hexdigest()
     
     cursor.execute('''
         INSERT INTO usuarios (nome, login, senha, empresa_id, role)
         VALUES (?, ?, ?, ?, ?)
-    ''', ('Administrador BBM', 'admin_bbm', senha_hash, bbm_id, 'Admin'))
+    ''', ('Administrador DLG', 'admin', senha_hash, dlg_id, 'Admin'))
 
 
     # Inserir uma segunda empresa para testar multi-tenancy

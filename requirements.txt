@@ -1,5 +1,5 @@
-streamlit
-requests
-pandas
-openpyxl
-PyMuPDF
+streamlit==1.57.0
+requests==2.33.1
+pandas==3.0.2
+PyMuPDF==1.27.2.3
+openpyxl==3.1.5
