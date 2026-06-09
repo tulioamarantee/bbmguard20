@@ -572,6 +572,8 @@ def render_ae_express(user):
                             services.cadastrar_motorista(dados_salvar, user['empresa_id'])
                         else:
                             st.session_state.ae_mot_nome = None
+                            erro_msg = res_sil.get("status", "") if res_sil else ""
+                            st.error(f"⛔ Motorista não encontrado. Detalhe SIL: {erro_msg}")
             else:
                 st.warning("⚠️ Digite um CPF válido com 11 dígitos antes de buscar.")
 
