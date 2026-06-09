@@ -21,14 +21,21 @@ def post_soap(action, body):
             f.write(r.text)
         r.raise_for_status()
         if not r.text:
-            with open("scratch/soap_error.txt", "a", encoding="utf-8") as f:
+            import os
+        os.makedirs("scratch", exist_ok=True)
+        with open("scratch/soap_error.txt", "a", encoding="utf-8") as f:
                 f.write(f"Vazio para {action}. Status: {r.status_code}\n")
         return r.text
     except Exception as e:
-        with open("scratch/soap_error.txt", "a", encoding="utf-8") as f:
-            f.write(f"ERRO SOAPSGR {action}: {e}\n")
-            if hasattr(e, 'response') and e.response is not None:
-                f.write(f"Response: {e.response.text}\n")
+        import os
+        os.makedirs("scratch", exist_ok=True)
+        try:
+            with open("scratch/soap_error.txt", "a", encoding="utf-8") as f:
+                f.write(f"ERRO SOAPSGR {action}: {e}\n")
+                if hasattr(e, 'response') and e.response is not None:
+                    f.write(f"Response: {e.response.text}\n")
+        except:
+            pass
         print(f"ERRO SOAPSGR {action}: {e}")
         logger.error(f"Erro na chamada SOAP {action}: {e}")
         return None
