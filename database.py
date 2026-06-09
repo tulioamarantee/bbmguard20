@@ -76,7 +76,12 @@ class ConnWrapper:
         self.conn.close()
 
 def init_db():
-    conn = get_connection()
+    try:
+        conn = get_connection()
+    except Exception as e:
+        import streamlit as st
+        st.error(f"ERRO DE CONEXÃO COM O BANCO DE DADOS: {str(e)}")
+        st.stop()
     # Usando o wrapper nativo só para a criação
     cursor = conn.cursor()
 
