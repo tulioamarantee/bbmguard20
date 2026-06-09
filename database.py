@@ -167,6 +167,41 @@ def init_db():
         )
     ''')
 
+    # Tabela de Autorizações de Embarque / Viagens (Nova funcionalidade do Projeto Super GR)
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS viagens (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            cd_programacao INTEGER,
+            cd_viagem INTEGER,
+            cpf_motorista TEXT NOT NULL,
+            nome_motorista TEXT,
+            placa_cavalo TEXT NOT NULL,
+            placa_carreta TEXT,
+            origem TEXT,
+            destino TEXT,
+            valor_carga REAL,
+            produto TEXT,
+            previsao_inicio TEXT,
+            previsao_fim TEXT,
+            numero_isca TEXT,
+            status TEXT DEFAULT 'Ativa',
+            data_criacao TEXT,
+            empresa_id INTEGER,
+            usuario_id INTEGER,
+            FOREIGN KEY (empresa_id) REFERENCES empresas (id),
+            FOREIGN KEY (usuario_id) REFERENCES usuarios (id)
+        )
+    ''')
+
+    try:
+        cursor.execute('ALTER TABLE viagens ADD COLUMN previsao_fim TEXT')
+    except Exception:
+        pass
+    try:
+        cursor.execute('ALTER TABLE viagens ADD COLUMN numero_isca TEXT')
+    except Exception:
+        pass
+
     conn.commit()
 
     if not db_exists:

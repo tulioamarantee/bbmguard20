@@ -993,7 +993,34 @@ def listar_veiculos(empresa_id, busca=""):
     conn.close()
     return veiculos
 
+def buscar_motorista_por_cpf(cpf, empresa_id):
+    """Busca um motorista pelo CPF no banco local. Retorna dict ou None."""
+    cpf_limpo = ''.join(filter(str.isdigit, cpf))
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        'SELECT * FROM motoristas WHERE cpf = ? AND empresa_id = ?',
+        (cpf_limpo, empresa_id)
+    )
+    mot = cursor.fetchone()
+    conn.close()
+    return dict(mot) if mot else None
+
+def buscar_veiculo_por_placa(placa, empresa_id):
+    """Busca um veículo pela placa no banco local. Retorna dict ou None."""
+    placa_limpa = placa.upper().replace('-', '').strip()
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        'SELECT * FROM veiculos WHERE placa = ? AND empresa_id = ?',
+        (placa_limpa, empresa_id)
+    )
+    veic = cursor.fetchone()
+    conn.close()
+    return dict(veic) if veic else None
+
 def verificar_validade_existente_veiculo(placa, empresa_id):
+
     placa_limpa = placa.upper().replace("-", "").strip()
     conn = get_connection()
     cursor = conn.cursor()
@@ -1222,19 +1249,849 @@ def processar_lote_veiculos(placas_encontradas, empresa_id, usuario_nome, origem
             erros += 1
             detalhes_processamento.append(f"- Placa **{placa}** | ❌ Erro Opentech: {res['status']}")
             
-    detalhes_str = "\n".join(detalhes_processamento)
-    msg = (
-        f"Importação de {origem} concluída com sucesso!\n\n"
-        f"📊 **Resumo do Processamento:**\n"
-        f"- **Total de Placas:** {len(placas_limpas)}\n"
-        f"- **Novos cadastrados:** {importados}\n"
-        f"- **Atualizados (já cadastrados):** {duplicados}\n"
-        f"- **Falhas no processamento:** {erros}\n\n"
-        f"🔍 **Status SIL Opentech:**\n"
-        f"- ✅ **Liberados:** {validados}\n"
-        f"- ❌ **Bloqueados/Outros:** {bloqueados}\n"
-        f"- 📅 **Vencidos:** {vencidos}\n\n"
-        f"📋 **Lista de Veículos Processados:**\n"
-        f"{detalhes_str}"
-    )
     return True, msg
+
+
+# --- GESTÃO DE AUTORIZAÇÃO DE EMBARQUE (AE) EXPRESS ---
+
+def criar_ae_express(dados, empresa_id, usuario_id, modo_simulacao=False):
+    """
+    Cria uma nova AE na Opentech (ou simulada) a partir das informações mínimas.
+    Grava no banco de dados local.
+    """
+    import random
+    
+    cpf_motorista = ''.join(filter(str.isdigit, dados["cpf_motorista"]))
+    placa_cavalo = dados["placa_cavalo"].upper().replace("-", "").strip()
+    placa_carreta = dados.get("placa_carreta", "").upper().replace("-", "").strip()
+    origem_nome = dados.get("origem_nome", "Cidade de Origem")
+    destino_nome = dados.get("destino_nome", "Cidade de Destino")
+    cd_cidade_origem = dados.get("cd_cidade_origem") or 9999
+    cd_cidade_destino = dados.get("cd_cidade_destino") or 9999
+    valor_carga = dados.get("valor_carga") or 1000.0
+    produto = "E-commerce" # Fixado por regra do negócio
+    numero_isca = dados.get("numero_isca", "").strip()
+    
+    previsao_inicio = dados.get("previsao_inicio") or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    previsao_fim = dados.get("previsao_fim") or (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S")
+    
+    # Formatação de datas
+    if isinstance(previsao_inicio, str):
+        previsao_inicio_dt = datetime.strptime(previsao_inicio, "%Y-%m-%d %H:%M:%S") if len(previsao_inicio) > 10 else datetime.strptime(previsao_inicio, "%Y-%m-%d")
+    else:
+        previsao_inicio_dt = previsao_inicio
+        previsao_inicio = previsao_inicio_dt.strftime("%Y-%m-%d %H:%M:%S")
+        
+    if isinstance(previsao_fim, str):
+        previsao_fim_dt = datetime.strptime(previsao_fim, "%Y-%m-%d %H:%M:%S") if len(previsao_fim) > 10 else datetime.strptime(previsao_fim, "%Y-%m-%d")
+    else:
+        previsao_fim_dt = previsao_fim
+        previsao_fim = previsao_fim_dt.strftime("%Y-%m-%d %H:%M:%S")
+
+    # 1. Obter nome do Motorista
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT nome FROM motoristas WHERE cpf = ? AND empresa_id = ?", (cpf_motorista, empresa_id))
+    mot = cursor.fetchone()
+    conn.close()
+    
+    if mot:
+        nome_motorista = mot['nome']
+    else:
+        # Tenta buscar do SIL
+        sil_mot = consultar_opentech(cpf_motorista, "TOKEN", "AE_Express")
+        if "Erro" not in sil_mot['status']:
+            nome_motorista = sil_mot['nome']
+        else:
+            nome_motorista = "Motorista Não Identificado"
+
+    # 2. Obter dados do Veículo
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT tipo_veiculo FROM veiculos WHERE placa = ? AND empresa_id = ?", (placa_cavalo, empresa_id))
+    veic = cursor.fetchone()
+    conn.close()
+    
+    cd_tipo_veiculo = 1 # Padrão: Cavalo Mecânico
+    if veic:
+        tipo_veic = veic['tipo_veiculo'].lower()
+        if "truck" in tipo_veic:
+            cd_tipo_veiculo = 2
+        elif "carreta" in tipo_veic:
+            cd_tipo_veiculo = 3
+        elif "bitrem" in tipo_veic:
+            cd_tipo_veiculo = 4
+    
+    # 3. Fluxo de Criação
+    if modo_simulacao:
+        # Modo de Simulação
+        cd_prog = random.randint(87000, 99999)
+        cd_viagem = random.randint(552000, 699999)
+        
+        # Gravar no Banco
+        conn = get_connection()
+        cursor = conn.cursor()
+        agora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        try:
+            cursor.execute('''
+                INSERT INTO viagens (cd_programacao, cd_viagem, cpf_motorista, nome_motorista, placa_cavalo, placa_carreta, 
+                                     origem, destino, valor_carga, produto, previsao_inicio, previsao_fim, numero_isca, status, data_criacao, empresa_id, usuario_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (cd_prog, cd_viagem, cpf_motorista, nome_motorista, placa_cavalo, placa_carreta, 
+                  f"{origem_nome} ({cd_cidade_origem})", f"{destino_nome} ({cd_cidade_destino})", 
+                  valor_carga, produto, previsao_inicio, previsao_fim, numero_isca, 'Ativa (Simulada)', agora, empresa_id, usuario_id))
+            conn.commit()
+            conn.close()
+            return True, f"AE Simulada com sucesso! AE #{cd_viagem} | Programação #{cd_prog} cadastrada."
+        except Exception as e:
+            conn.close()
+            return False, f"Erro ao salvar viagem simulada: {e}"
+            
+    else:
+        # Integração SOAP Real com a Opentech
+        # Fase Única: Gerar AE (sgrGerarAEv9)
+        import config
+        ae_payload = {
+            "cdpas": config.CD_PAS,
+            "cdcliente": config.CD_CLIENTE,
+            "nrplacacavalo": placa_cavalo,
+            "nrplacacarreta1": placa_carreta,
+            "nrdocmotorista1": cpf_motorista,
+            "nomemot1": nome_motorista,
+            "dtprevini": previsao_inicio.replace(" ", "T"),
+            "dtprevfim": previsao_fim.replace(" ", "T"),
+            "cdcidorigem": cd_cidade_origem,
+            "cdciddestino": cd_cidade_destino,
+            "vlcarga": valor_carga,
+            "cdtransp": config.CD_CLIENTE,
+            "cdembarcador": config.CD_CLIENTE,
+            "cdprod": 22810, # 22810 = E COMMERCE para o cliente Dialogo
+            "cdrota": dados.get("cd_rota", -1),
+            "nrDoc": numero_isca if numero_isca else f"SGR-{cpf_motorista[-4:]}-{placa_cavalo[-4:]}"
+        }
+        
+        res_ae = soap_client.gerar_ae_v9(ae_payload)
+        
+        if "error" in res_ae:
+            return False, f"Erro ao gerar a AE na Opentech: {res_ae['error']}"
+            
+        cd_viagem = res_ae["cd_viagem"]
+        cd_prog = cd_viagem # Para compatibilidade com o banco
+        
+        # Gravar no Banco de Dados
+        conn = get_connection()
+        cursor = conn.cursor()
+        agora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        try:
+            cursor.execute('''
+                INSERT INTO viagens (cd_programacao, cd_viagem, cpf_motorista, nome_motorista, placa_cavalo, placa_carreta, 
+                                     origem, destino, valor_carga, produto, previsao_inicio, previsao_fim, numero_isca, status, data_criacao, empresa_id, usuario_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (cd_prog, cd_viagem, cpf_motorista, nome_motorista, placa_cavalo, placa_carreta, 
+                  f"{origem_nome} ({cd_cidade_origem})", f"{destino_nome} ({cd_cidade_destino})", 
+                  valor_carga, produto, previsao_inicio, previsao_fim, numero_isca, 'Ativa', agora, empresa_id, usuario_id))
+            conn.commit()
+            conn.close()
+            return True, f"AE Criada com sucesso na Opentech! AE #{cd_viagem} (Programação #{cd_prog})"
+        except Exception as e:
+            conn.close()
+            return True, f"AE criada na Opentech (#{cd_viagem}) mas falhou ao gravar no histórico local: {e}"
+
+
+def listar_viagens(empresa_id, busca=""):
+    """
+    Lista as viagens/AEs cadastradas no histórico local.
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+    query = "SELECT * FROM viagens WHERE empresa_id = ?"
+    params = [empresa_id]
+    
+    if busca:
+        query += " AND (cpf_motorista LIKE ? OR nome_motorista LIKE ? OR placa_cavalo LIKE ? OR placa_carreta LIKE ? OR cd_viagem LIKE ?)"
+        params.extend([f"%{busca}%", f"%{busca}%", f"%{busca}%", f"%{busca}%", f"%{busca}%"])
+        
+    query += " ORDER BY id DESC"
+    
+    cursor.execute(query, params)
+    viagens = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return viagens
+
+
+def cancelar_viagem_ae(viagem_id, cd_programacao, empresa_id):
+    """
+    Cancela a viagem na Opentech e atualiza o status na base local.
+    """
+    # 1. Verificar se a viagem é simulada
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT status FROM viagens WHERE id = ? AND empresa_id = ?", (viagem_id, empresa_id))
+    res = cursor.fetchone()
+    conn.close()
+    
+    if not res:
+        return False, "Viagem não encontrada no sistema."
+        
+    status_atual = res['status']
+    
+    if "Simulada" in status_atual:
+        # Apenas atualiza local
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("UPDATE viagens SET status = 'Cancelada (Simulada)' WHERE id = ?", (viagem_id,))
+        conn.commit()
+        conn.close()
+        return True, "Viagem simulada cancelada localmente com sucesso."
+        
+    else:
+        # Tenta cancelar na Opentech
+        res_soap = soap_client.cancelar_programacao(cd_programacao)
+        if "error" in res_soap:
+            # Se der erro mas o usuário quiser forçar o cancelamento local porque a viagem já expirou na Opentech
+            # permitimos atualizar localmente avisando do erro
+            return False, f"Erro ao cancelar na Opentech: {res_soap['error']}"
+            
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("UPDATE viagens SET status = 'Cancelada' WHERE id = ?", (viagem_id,))
+        conn.commit()
+        conn.close()
+        return True, "Viagem cancelada com sucesso na Opentech e atualizada no histórico."
+
+
+def baixar_viagem_ae(viagem_id, cd_programacao, empresa_id):
+    """
+    Finaliza (dá baixa) na viagem na Opentech e atualiza o status na base local.
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT status FROM viagens WHERE id = ? AND empresa_id = ?", (viagem_id, empresa_id))
+    res = cursor.fetchone()
+    conn.close()
+    
+    if not res:
+        return False, "Viagem não encontrada no sistema."
+        
+    status_atual = res['status']
+    
+    if "Simulada" in status_atual:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("UPDATE viagens SET status = 'Baixada (Simulada)' WHERE id = ?", (viagem_id,))
+        conn.commit()
+        conn.close()
+        return True, "Viagem simulada concluída localmente."
+        
+    else:
+        res_soap = soap_client.baixar_programacao(cd_programacao)
+        if "error" in res_soap:
+            return False, f"Erro ao finalizar viagem na Opentech: {res_soap['error']}"
+            
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("UPDATE viagens SET status = 'Baixada' WHERE id = ?", (viagem_id,))
+        conn.commit()
+        conn.close()
+        return True, "Viagem finalizada (baixa) com sucesso na Opentech!"
+
+
+def buscar_rotas_opentech():
+    """
+    Lista todas as Rotas Modelo cadastradas e ativas na Opentech.
+    """
+    try:
+        res = soap_client.obter_rotas_modelo()
+        return res
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def buscar_rota_especifica(cd_cid_origem, cd_cid_destino):
+    """
+    Busca todas as rotas modelo disponíveis na Opentech.
+    Como os códigos de cidades da rota nem sempre batem com a viagem (ex: Rota Itapeva cobrindo Extrema),
+    retornamos todas para que o usuário possa pesquisar na interface.
+    """
+    try:
+        todas = soap_client.obter_rotas_modelo()
+        if not isinstance(todas, list):
+            return todas
+
+        # Sort the list: exact matches first
+        exatas = []
+        outras = []
+        for r in todas:
+            if r.get("cd_cidade_origem") == cd_cid_origem and r.get("cd_cidade_destino") == cd_cid_destino:
+                r["ds_rota"] = f"⭐ [RECOMENDADA] {r['ds_rota']}"
+                exatas.append(r)
+            else:
+                outras.append(r)
+                
+        return exatas + outras
+    except Exception as e:
+        return {"error": str(e)}
+
+def sincronizar_rotas_opentech():
+    """
+    Sincroniza as rotas da Opentech (sgrRetornaRotasModelo) com um timeout alto (120s)
+    e sobrescreve o arquivo rotas_opentech.json localmente.
+    """
+    import requests, re, json
+    import config
+    from soap_client import sgr_login
+    
+    chave = sgr_login()
+    if not chave:
+        return False, "Falha de autenticação com a Opentech."
+        
+    body = f"""<?xml version="1.0" encoding="utf-8"?>
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:tem="http://tempuri.org/">
+  <soapenv:Header/>
+  <soapenv:Body>
+    <tem:sgrRetornaRotasModelo>
+      <tem:chaveAcesso>{chave}</tem:chaveAcesso>
+      <tem:cdpas>{config.CD_PAS}</tem:cdpas>
+      <tem:cdcliente>{config.CD_CLIENTE}</tem:cdcliente>
+    </tem:sgrRetornaRotasModelo>
+  </soapenv:Body>
+</soapenv:Envelope>"""
+
+    try:
+        r = requests.post(
+            config.WS_URL, 
+            data=body.encode('utf-8'), 
+            headers={"Content-Type": "text/xml;charset=utf-8", "SOAPAction": '"http://tempuri.org/sgrRetornaRotasModelo"'}, 
+            timeout=120
+        )
+        if r.status_code == 200:
+            blocks = re.findall(r"<RotaModelo[^>]*>(.*?)</RotaModelo>", r.text, re.DOTALL)
+            rotas = []
+            for b in blocks:
+                cd_rota = re.search(r"<cdRotaModelo>(.*?)</cdRotaModelo>", b)
+                ds_rota = re.search(r"<dsRotaModelo>(.*?)</dsRotaModelo>", b)
+                cd_orig = re.search(r"<cdCidOrigem>(.*?)</cdCidOrigem>", b)
+                cd_dest = re.search(r"<cdCidDestino>(.*?)</cdCidDestino>", b)
+                fl_sit = re.search(r"<flSituacao>(.*?)</flSituacao>", b)
+                
+                # Só importa rotas ativas
+                if fl_sit and fl_sit.group(1) == "true" and cd_rota and ds_rota:
+                    rotas.append({
+                        "cd_rota": int(cd_rota.group(1)),
+                        "ds_rota": ds_rota.group(1).strip(),
+                        "cd_cidade_origem": int(cd_orig.group(1)) if cd_orig else 0,
+                        "cd_cidade_destino": int(cd_dest.group(1)) if cd_dest else 0
+                    })
+                    
+            with open("rotas_opentech.json", "w", encoding="utf-8") as f:
+                json.dump(rotas, f, indent=2, ensure_ascii=False)
+                
+            return True, f"{len(rotas)} rotas atualizadas com sucesso!"
+        else:
+            return False, f"Erro na Opentech: HTTP {r.status_code}"
+    except requests.exceptions.Timeout:
+        return False, "A Opentech demorou mais de 2 minutos para responder. Tente novamente mais tarde."
+    except Exception as e:
+        return False, f"Erro interno: {str(e)}"
+
+
+def gerar_pdf_ae(cd_viagem, dados_locais=None):
+    """
+    Gera o PDF da Autorização de Embarque.
+
+    Tenta primeiro buscar os dados atualizados via sgrRetornaAE na Opentech.
+    Se falhar (AE simulada ou sem acesso), usa os dados_locais passados como fallback.
+
+    Parâmetros:
+        cd_viagem   : int/str — código da viagem/AE na Opentech
+        dados_locais: dict   — dados da viagem gravados no banco local (fallback)
+
+    Retorna:
+        bytes do PDF gerado, ou None se falhar.
+    """
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.lib.units import cm
+    from reportlab.platypus import (
+        SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable, PageBreak
+    )
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+    import io
+    from datetime import datetime
+
+    # ── 1. Tentar buscar dados atualizados da Opentech ──
+    dados_api = None
+    try:
+        res = soap_client.obter_dados_ae(int(cd_viagem))
+        if res and "error" not in res:
+            dados_api = res
+    except Exception:
+        pass
+
+    # ── 2. Consolidar dados (API tem prioridade, fallback para local) ──
+    loc = dados_locais or {}
+
+    def _val(api_key, local_key=None, default="N/I"):
+        v = dados_api.get(api_key) if dados_api else None
+        if v:
+            return str(v).strip()
+        if local_key:
+            v2 = loc.get(local_key)
+            if v2:
+                return str(v2).strip()
+        return default
+
+    cd_viagem_str  = str(cd_viagem)
+    cd_prog_str    = _val("cd_programacao", "cd_programacao", "—")
+    nome_mot       = _val("nome_motorista",  "nome_motorista",  "Não identificado")
+    cpf_mot        = _val("cpf_motorista",   "cpf_motorista",   "—")
+    placa_cav      = _val("placa_cavalo",    "placa_cavalo",    "—")
+    placa_car      = _val("placa_carreta",   "placa_carreta",   "—") or "—"
+    origem         = _val("cidade_origem",   "origem",          "—")
+    destino        = _val("cidade_destino",  "destino",         "—")
+    produto        = _val("produto",         "produto",         "E-commerce")
+    nr_isca        = _val("nr_isca",         "numero_isca",     "—")
+    ds_rota        = _val("ds_rota",         None,              "—")
+    situacao       = _val("ds_situacao",     "status",          "—")
+    valor_raw      = _val("valor_carga",     "valor_carga",     "0")
+    dt_ini_raw     = _val("dt_prev_ini",     "previsao_inicio", "—")
+    dt_fim_raw     = _val("dt_prev_fim",     "previsao_fim",    "—")
+    dt_geracao     = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+    simulada       = "Simulada" in str(loc.get("status", ""))
+    
+    trechos_rota   = dados_api.get("trechos_rota", []) if dados_api else loc.get("trechos_rota", [])
+    pontos_apoio   = dados_api.get("pontos_apoio", []) if dados_api else loc.get("pontos_apoio", [])
+
+    # Formatar valor
+    try:
+        valor_fmt = f"R$ {float(valor_raw):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    except Exception:
+        valor_fmt = valor_raw
+
+    # Formatar datas
+    def _fmt_dt(s):
+        if not s or s == "—":
+            return "—"
+        for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d", "%d/%m/%Y %H:%M:%S", "%d/%m/%Y"):
+            try:
+                return datetime.strptime(s[:19], fmt).strftime("%d/%m/%Y %H:%M")
+            except Exception:
+                continue
+        return s
+
+    dt_ini_fmt = _fmt_dt(dt_ini_raw)
+    dt_fim_fmt = _fmt_dt(dt_fim_raw)
+
+    # ── 3. Montar PDF com reportlab ──
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        leftMargin=1.8 * cm,
+        rightMargin=1.8 * cm,
+        topMargin=1.5 * cm,
+        bottomMargin=1.5 * cm,
+    )
+
+    styles = getSampleStyleSheet()
+
+    # Paleta de cores
+    AZUL_ESCURO  = colors.HexColor("#0D1B2A")
+    AZUL_MEDIO   = colors.HexColor("#1A3A5C")
+    AZUL_CLARO   = colors.HexColor("#2D6A9F")
+    CINZA_CLARO  = colors.HexColor("#F0F4F8")
+    CINZA_BORDA  = colors.HexColor("#CBD5E0")
+    VERDE        = colors.HexColor("#1A7A4A")
+    AMARELO      = colors.HexColor("#D97706")
+    BRANCO       = colors.white
+
+    # Estilos customizados
+    st_titulo = ParagraphStyle(
+        "titulo", parent=styles["Normal"],
+        fontSize=14, fontName="Helvetica-Bold",
+        textColor=BRANCO, alignment=TA_CENTER, spaceAfter=2
+    )
+    st_subtitulo = ParagraphStyle(
+        "subtitulo", parent=styles["Normal"],
+        fontSize=9, fontName="Helvetica",
+        textColor=colors.HexColor("#B0C4D8"), alignment=TA_CENTER
+    )
+    st_sec_header = ParagraphStyle(
+        "sec_header", parent=styles["Normal"],
+        fontSize=8, fontName="Helvetica-Bold",
+        textColor=AZUL_CLARO, spaceBefore=4, spaceAfter=2
+    )
+    st_label = ParagraphStyle(
+        "label", parent=styles["Normal"],
+        fontSize=7.5, fontName="Helvetica",
+        textColor=colors.HexColor("#718096")
+    )
+    st_valor = ParagraphStyle(
+        "valor", parent=styles["Normal"],
+        fontSize=9, fontName="Helvetica-Bold",
+        textColor=AZUL_ESCURO
+    )
+    st_rodape = ParagraphStyle(
+        "rodape", parent=styles["Normal"],
+        fontSize=7, fontName="Helvetica",
+        textColor=colors.HexColor("#A0AEC0"), alignment=TA_CENTER
+    )
+
+    elementos = []
+
+    # ────────────────────────────────
+    # CABEÇALHO (LOGO BBM + TEXTO)
+    # ────────────────────────────────
+    import os
+    from reportlab.platypus import Image
+    
+    cor_status_badge = AMARELO if simulada else VERDE
+    status_txt = "SIMULADA" if simulada else "ATIVA"
+    
+    logo_path = os.path.join(os.path.dirname(__file__), "1-removebg-preview.png")
+    try:
+        logo_flowable = Image(logo_path, width=4*cm, height=1.6*cm)
+    except Exception:
+        logo_flowable = ""
+
+    st_titulo_header = ParagraphStyle(
+        "titulo_header", parent=styles["Normal"],
+        fontSize=15, fontName="Helvetica-Bold",
+        textColor=AZUL_ESCURO, alignment=TA_CENTER, spaceAfter=2
+    )
+
+    header_data = [[
+        logo_flowable,
+        Paragraph("AUTORIZAÇÃO DE EMBARQUE<br/><font size='10' color='#2D6A9F'>BBM Logística</font>", st_titulo_header),
+        Paragraph(f"AE #{cd_viagem_str}", ParagraphStyle(
+            "ae_num", parent=styles["Normal"],
+            fontSize=16, fontName="Helvetica-Bold",
+            textColor=AZUL_ESCURO, alignment=TA_RIGHT
+        ))
+    ]]
+    
+    header_table = Table(header_data, colWidths=["30%", "45%", "25%"])
+    header_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), BRANCO),
+        ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
+        ("ALIGN",         (0, 0), (0, 0), "LEFT"),
+        ("ALIGN",         (1, 0), (1, 0), "CENTER"),
+        ("ALIGN",         (2, 0), (2, 0), "RIGHT"),
+        ("TOPPADDING",    (0, 0), (-1, -1), 10),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
+    ]))
+    elementos.append(header_table)
+
+    # Faixa de subtítulo + status (agora com linha abaixo, fundo branco, texto azul claro)
+    st_subtitulo_header = ParagraphStyle(
+        "subtitulo_header", parent=styles["Normal"],
+        fontSize=10, fontName="Helvetica-Bold",
+        textColor=AZUL_CLARO, alignment=TA_LEFT
+    )
+    
+    sub_data = [[
+        Paragraph("Gestão de Risco e Monitoramento", st_subtitulo_header),
+        Paragraph(f"STATUS: {status_txt}", ParagraphStyle(
+            "st_badge2", parent=styles["Normal"],
+            fontSize=10, fontName="Helvetica-Bold",
+            textColor=cor_status_badge, alignment=TA_RIGHT
+        ))
+    ]]
+    sub_table = Table(sub_data, colWidths=["70%", "30%"])
+    sub_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), BRANCO),
+        ("LINEBELOW",  (0, 0), (-1, -1), 1, AZUL_CLARO),
+        ("TOPPADDING",    (0, 0), (-1, -1), 2),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+    ]))
+    elementos.append(sub_table)
+    elementos.append(Spacer(1, 0.4 * cm))
+
+    # ────────────────────────────────
+    # IDENTIFICAÇÃO DA AE
+    # ────────────────────────────────
+    id_data = [
+        [
+            Paragraph("CÓDIGO DA VIAGEM / AE", st_label),
+            Paragraph("Nº PROGRAMAÇÃO", st_label),
+            Paragraph("DATA DE GERAÇÃO", st_label),
+        ],
+        [
+            Paragraph(f"#{cd_viagem_str}", st_valor),
+            Paragraph(f"#{cd_prog_str}", st_valor),
+            Paragraph(dt_geracao, st_valor),
+        ],
+    ]
+    id_table = Table(id_data, colWidths=["33%", "33%", "34%"])
+    id_table.setStyle(TableStyle([
+        ("BACKGROUND",    (0, 0), (-1, -1), CINZA_CLARO),
+        ("GRID",          (0, 0), (-1, -1), 0.4, CINZA_BORDA),
+        ("TOPPADDING",    (0, 0), (-1, -1), 8),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+        ("LEFTPADDING",   (0, 0), (-1, -1), 12),
+        ("RIGHTPADDING",  (0, 0), (-1, -1), 12),
+        ("VALIGN",        (0, 0), (-1, -1), "TOP"),
+        ("ROUNDEDCORNERS", [6, 6, 6, 6]),
+    ]))
+    elementos.append(id_table)
+    elementos.append(Spacer(1, 0.35 * cm))
+
+    # ────────────────────────────────
+    # SEÇÃO: MOTORISTA
+    # ────────────────────────────────
+    elementos.append(Paragraph("> MOTORISTA", st_sec_header))
+    mot_data = [
+        [Paragraph("NOME COMPLETO", st_label), Paragraph("CPF", st_label)],
+        [Paragraph(nome_mot.upper(), st_valor), Paragraph(cpf_mot, st_valor)],
+    ]
+    mot_table = Table(mot_data, colWidths=["65%", "35%"])
+    mot_table.setStyle(TableStyle([
+        ("BACKGROUND",    (0, 0), (-1, -1), BRANCO),
+        ("BOX",           (0, 0), (-1, -1), 0.5, CINZA_BORDA),
+        ("LINEBELOW",     (0, 0), (-1, 0),  0.3, CINZA_BORDA),
+        ("TOPPADDING",    (0, 0), (-1, -1), 8),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+        ("LEFTPADDING",   (0, 0), (-1, -1), 12),
+        ("RIGHTPADDING",  (0, 0), (-1, -1), 12),
+        ("VALIGN",        (0, 0), (-1, -1), "TOP"),
+    ]))
+    elementos.append(mot_table)
+    elementos.append(Spacer(1, 0.35 * cm))
+
+    # ────────────────────────────────
+    # SEÇÃO: VEÍCULOS
+    # ────────────────────────────────
+    elementos.append(Paragraph("> VEICULOS", st_sec_header))
+    veic_data = [
+        [Paragraph("CAVALO MECÂNICO", st_label), Paragraph("CARRETA / REBOQUE", st_label)],
+        [Paragraph(placa_cav, st_valor), Paragraph(placa_car, st_valor)],
+    ]
+    veic_table = Table(veic_data, colWidths=["50%", "50%"])
+    veic_table.setStyle(TableStyle([
+        ("BACKGROUND",    (0, 0), (-1, -1), BRANCO),
+        ("BOX",           (0, 0), (-1, -1), 0.5, CINZA_BORDA),
+        ("LINEBELOW",     (0, 0), (-1, 0),  0.3, CINZA_BORDA),
+        ("LINEAFTER",     (0, 0), (0, -1),  0.3, CINZA_BORDA),
+        ("TOPPADDING",    (0, 0), (-1, -1), 8),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+        ("LEFTPADDING",   (0, 0), (-1, -1), 12),
+        ("RIGHTPADDING",  (0, 0), (-1, -1), 12),
+        ("VALIGN",        (0, 0), (-1, -1), "TOP"),
+    ]))
+    elementos.append(veic_table)
+    elementos.append(Spacer(1, 0.35 * cm))
+
+    # ────────────────────────────────
+    # SEÇÃO: ROTA
+    # ────────────────────────────────
+    elementos.append(Paragraph("> ROTA DE VIAGEM", st_sec_header))
+    rota_data = [
+        [
+            Paragraph("ORIGEM", st_label),
+            Paragraph("", st_label),
+            Paragraph("DESTINO", st_label),
+        ],
+        [
+            Paragraph(origem, st_valor),
+            Paragraph("  ->  ", ParagraphStyle(
+                "seta", parent=styles["Normal"],
+                fontSize=16, fontName="Helvetica-Bold", textColor=AZUL_CLARO, alignment=TA_CENTER
+            )),
+            Paragraph(destino, st_valor),
+        ],
+    ]
+    if ds_rota and ds_rota != "—":
+        rota_data.append([
+            Paragraph("ROTA MODELO", st_label),
+            Paragraph("", st_label),
+            Paragraph("", st_label),
+        ])
+        rota_data.append([
+            Paragraph(ds_rota, st_valor),
+            Paragraph("", st_valor),
+            Paragraph("", st_valor),
+        ])
+
+    rota_table = Table(rota_data, colWidths=["44%", "12%", "44%"])
+    rota_table.setStyle(TableStyle([
+        ("BACKGROUND",    (0, 0), (-1, -1), BRANCO),
+        ("BOX",           (0, 0), (-1, -1), 0.5, CINZA_BORDA),
+        ("LINEBELOW",     (0, 0), (-1, 0),  0.3, CINZA_BORDA),
+        ("TOPPADDING",    (0, 0), (-1, -1), 8),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+        ("LEFTPADDING",   (0, 0), (-1, -1), 12),
+        ("RIGHTPADDING",  (0, 0), (-1, -1), 12),
+        ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
+        ("SPAN",          (0, 2), (2, 2)) if len(rota_data) > 2 else ("VALIGN", (0, 0), (0, 0), "TOP"),
+        ("SPAN",          (0, 3), (2, 3)) if len(rota_data) > 3 else ("VALIGN", (0, 0), (0, 0), "TOP"),
+    ]))
+    elementos.append(rota_table)
+    elementos.append(Spacer(1, 0.35 * cm))
+
+    # ────────────────────────────────
+    # SEÇÃO: DATAS
+    # ────────────────────────────────
+    elementos.append(Paragraph("> PREVISAO DE VIAGEM", st_sec_header))
+    datas_data = [
+        [Paragraph("INÍCIO PREVISTO", st_label), Paragraph("FIM PREVISTO", st_label)],
+        [Paragraph(dt_ini_fmt, st_valor), Paragraph(dt_fim_fmt, st_valor)],
+    ]
+    datas_table = Table(datas_data, colWidths=["50%", "50%"])
+    datas_table.setStyle(TableStyle([
+        ("BACKGROUND",    (0, 0), (-1, -1), BRANCO),
+        ("BOX",           (0, 0), (-1, -1), 0.5, CINZA_BORDA),
+        ("LINEBELOW",     (0, 0), (-1, 0),  0.3, CINZA_BORDA),
+        ("LINEAFTER",     (0, 0), (0, -1),  0.3, CINZA_BORDA),
+        ("TOPPADDING",    (0, 0), (-1, -1), 8),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+        ("LEFTPADDING",   (0, 0), (-1, -1), 12),
+        ("RIGHTPADDING",  (0, 0), (-1, -1), 12),
+        ("VALIGN",        (0, 0), (-1, -1), "TOP"),
+    ]))
+    elementos.append(datas_table)
+    elementos.append(Spacer(1, 0.35 * cm))
+
+    # ────────────────────────────────
+    # SEÇÃO: CARGA E ISCA
+    # ────────────────────────────────
+    elementos.append(Paragraph("> CARGA E RASTREAMENTO", st_sec_header))
+    carga_data = [
+        [
+            Paragraph("PRODUTO / TIPO DE CARGA", st_label),
+            Paragraph("VALOR DA CARGA", st_label),
+            Paragraph("NÚMERO DA ISCA", st_label),
+        ],
+        [
+            Paragraph(produto, st_valor),
+            Paragraph(valor_fmt, ParagraphStyle(
+                "valor_destaque", parent=styles["Normal"],
+                fontSize=10, fontName="Helvetica-Bold",
+                textColor=VERDE
+            )),
+            Paragraph(nr_isca if nr_isca != "—" else "Não informada", st_valor),
+        ],
+    ]
+    carga_table = Table(carga_data, colWidths=["35%", "30%", "35%"])
+    carga_table.setStyle(TableStyle([
+        ("BACKGROUND",    (0, 0), (-1, -1), BRANCO),
+        ("BOX",           (0, 0), (-1, -1), 0.5, CINZA_BORDA),
+        ("LINEBELOW",     (0, 0), (-1, 0),  0.3, CINZA_BORDA),
+        ("LINEAFTER",     (0, 0), (0, -1),  0.3, CINZA_BORDA),
+        ("LINEAFTER",     (1, 0), (1, -1),  0.3, CINZA_BORDA),
+        ("TOPPADDING",    (0, 0), (-1, -1), 8),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+        ("LEFTPADDING",   (0, 0), (-1, -1), 12),
+        ("RIGHTPADDING",  (0, 0), (-1, -1), 12),
+        ("VALIGN",        (0, 0), (-1, -1), "TOP"),
+    ]))
+    elementos.append(carga_table)
+    elementos.append(Spacer(1, 0.6 * cm))
+
+    # ────────────────────────────────
+    # SEÇÃO: TRECHOS DA ROTA E PONTOS DE APOIO
+    # ────────────────────────────────
+    if trechos_rota or pontos_apoio:
+        elementos.append(PageBreak())
+
+    if trechos_rota:
+        elementos.append(Paragraph("> TRECHOS DA ROTA", st_sec_header))
+        elementos.append(Spacer(1, 0.2 * cm))
+        st_bullet = ParagraphStyle(
+            "st_bullet",
+            parent=st_valor,
+            leftIndent=15,
+            spaceAfter=4
+        )
+        for trecho in trechos_rota:
+            municipio = trecho.get("Municipio", "")
+            ruas = ", ".join(trecho.get("Ruas", []))
+            elementos.append(Paragraph(f"• <b>{municipio}:</b> {ruas}", st_bullet))
+        
+        elementos.append(Spacer(1, 0.6 * cm))
+
+    if pontos_apoio:
+        elementos.append(Paragraph("> LOCAIS DE PARADA PERMITIDOS", st_sec_header))
+        elementos.append(Spacer(1, 0.2 * cm))
+        for ponto in pontos_apoio:
+            fantasia = ponto.get("fantasia", "")
+            cidade_uf = f"{ponto.get('cidade', '')}/{ponto.get('uf', '')}"
+            tipo = ponto.get("tipo", "")
+            fone = f"({ponto.get('ddd', '')}) {ponto.get('telefone', '')}" if ponto.get('telefone') else ""
+            km = str(ponto.get("km", ""))
+            
+            ponto_str = f"• <b>{fantasia}</b> - {cidade_uf} - {tipo}"
+            if fone:
+                ponto_str += f" - Tel: {fone}"
+            if km and km != "0" and km != "0.0":
+                ponto_str += f" - KM: {km}"
+                
+            elementos.append(Paragraph(ponto_str, st_bullet))
+
+        elementos.append(Spacer(1, 0.6 * cm))
+
+    # ────────────────────────────────
+    # AVISO SIMULAÇÃO (se aplicável)
+    # ────────────────────────────────
+    if simulada:
+        aviso_data = [[
+            Paragraph(
+                "ATENCAO: Esta AE foi gerada em MODO DE SIMULACAO e nao possui efeito real "
+                "no sistema Opentech. Use apenas para fins de teste.",
+                ParagraphStyle(
+                    "aviso", parent=styles["Normal"],
+                    fontSize=8, fontName="Helvetica-Bold",
+                    textColor=AMARELO, alignment=TA_CENTER
+                )
+            )
+        ]]
+        aviso_table = Table(aviso_data, colWidths=["100%"])
+        aviso_table.setStyle(TableStyle([
+            ("BACKGROUND",    (0, 0), (-1, -1), colors.HexColor("#FFF3CD")),
+            ("BOX",           (0, 0), (-1, -1), 0.8, AMARELO),
+            ("TOPPADDING",    (0, 0), (-1, -1), 10),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
+            ("LEFTPADDING",   (0, 0), (-1, -1), 12),
+            ("RIGHTPADDING",  (0, 0), (-1, -1), 12),
+        ]))
+        elementos.append(aviso_table)
+        elementos.append(Spacer(1, 0.4 * cm))
+
+    # ────────────────────────────────
+    # CONTATOS OPENTECH
+    # ────────────────────────────────
+    elementos.append(HRFlowable(width="100%", thickness=0.5, color=CINZA_BORDA))
+    elementos.append(Spacer(1, 0.4 * cm))
+    elementos.append(Paragraph("<b>📞 Central Opentech – Plantão 24h</b>", st_valor))
+    elementos.append(Paragraph("+55 47 3481-6122", st_valor))
+    elementos.append(Spacer(1, 0.2 * cm))
+    elementos.append(Paragraph("<b>📞 Outros contatos da Central Opentech</b>", st_valor))
+    elementos.append(Paragraph("47 2101-6122", st_valor))
+    elementos.append(Paragraph("47 3481-6100", st_valor))
+    elementos.append(Spacer(1, 0.6 * cm))
+
+    # ────────────────────────────────
+    # RODAPÉ
+    # ────────────────────────────────
+    elementos.append(HRFlowable(width="100%", thickness=0.5, color=CINZA_BORDA))
+    elementos.append(Spacer(1, 0.2 * cm))
+    elementos.append(Paragraph(
+        f"Autorização de Embarque - Dialogo Logistica  |  {dt_geracao}  |  AE #{cd_viagem_str}",
+        st_rodape
+    ))
+    elementos.append(Paragraph(
+        "Este documento é de uso interno. Em caso de dúvidas, contate a equipe de Gestão de Risco.",
+        st_rodape
+    ))
+
+    # ── 4. Construir e retornar bytes ──
+    try:
+        doc.build(elementos)
+        buffer.seek(0)
+        return buffer.read()
+    except Exception as e:
+        logging.getLogger("services").error(f"Erro ao gerar PDF da AE #{cd_viagem}: {e}")
+        return None
+
+
+
