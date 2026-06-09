@@ -25,7 +25,7 @@ def login_screen():
         st.markdown("""
             <div style="text-align: center; margin-bottom: 25px; margin-top: 40px;">
                 <div style="font-size: 3.5rem; filter: drop-shadow(0 0 10px rgba(67,100,247,0.4)); margin-bottom: 10px;">⚡</div>
-                <h1 style="font-family: 'Orbitron', sans-serif; font-weight: 900; letter-spacing: 2px; color: #FFFFFF; font-size: 2.3rem; margin: 0;">BBM RISK</h1>
+                <h1 style="font-family: 'Orbitron', sans-serif; font-weight: 900; letter-spacing: 2px; color: var(--text-color); font-size: 2.3rem; margin: 0;">BBM RISK</h1>
                 <span style="color: #90a4ae; font-size: 0.95rem; font-weight: 500;">Controle de Portaria & Gestão de Risco</span>
             </div>
         """, unsafe_allow_html=True)
