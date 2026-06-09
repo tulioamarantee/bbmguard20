@@ -132,6 +132,10 @@ def render_config(user):
                     st.error(msg)
         
         st.divider()
+        if 'success_msg' in st.session_state:
+            st.success(st.session_state['success_msg'])
+            del st.session_state['success_msg']
+
         # ── Abas: Criar Usuário | Gerenciar Usuários ──
         if role == 'admin':
             tabs = st.tabs(["➕ Novo Usuário", "👥 Gerenciar Usuários"])
@@ -177,7 +181,7 @@ def render_config(user):
                                 role=role_sel.lower()
                             )
                             if sucesso:
-                                st.success(msg)
+                                st.session_state['success_msg'] = msg
                                 st.rerun()
                             else:
                                 st.error(msg)
