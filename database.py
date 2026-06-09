@@ -167,7 +167,7 @@ def init_db():
         )
     ''')
 
-    # Tabela de Autorizações de Embarque / Viagens (Nova funcionalidade do Projeto Super GR)
+    # Tabela de Autorizações de Embarque / Viagens (Nova funcionalidade do BBM Risk)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS viagens (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -432,7 +432,7 @@ def gerar_ae_programacao(dados):
     cd_cid_destino = dados.get("cd_cid_destino") or cd_cid_origem
     cd_rota = dados.get("cd_rota") or 1
     cd_transp = dados.get("cd_transp") or CD_CLIENTE
-    ds_controle_carga = dados.get("ds_controle_carga") or "Emissao Super GR"
+    ds_controle_carga = dados.get("ds_controle_carga") or "Emissao BBM Risk"
     
     # Processar número da Isca
     numero_isca = dados.get("numero_isca", "").strip()

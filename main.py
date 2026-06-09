@@ -6,7 +6,7 @@ import re
 from database import init_db
 
 # Configuração da página
-st.set_page_config(page_title="Projeto Super GR - Gestão de Risco", layout="wide", page_icon="⚡")
+st.set_page_config(page_title="BBM Risk - Gestão de Risco", layout="wide", page_icon="⚡")
 
 # Inicializar Banco de Dados
 init_db()
@@ -25,7 +25,7 @@ def login_screen():
         st.markdown("""
             <div style="text-align: center; margin-bottom: 25px; margin-top: 40px;">
                 <div style="font-size: 3.5rem; filter: drop-shadow(0 0 10px rgba(67,100,247,0.4)); margin-bottom: 10px;">⚡</div>
-                <h1 style="font-family: 'Orbitron', sans-serif; font-weight: 900; letter-spacing: 2px; color: #FFFFFF; font-size: 2.3rem; margin: 0;">PROJETO SUPER GR</h1>
+                <h1 style="font-family: 'Orbitron', sans-serif; font-weight: 900; letter-spacing: 2px; color: #FFFFFF; font-size: 2.3rem; margin: 0;">BBM RISK</h1>
                 <span style="color: #90a4ae; font-size: 0.95rem; font-weight: 500;">Controle de Portaria & Gestão de Risco</span>
             </div>
         """, unsafe_allow_html=True)
@@ -121,7 +121,7 @@ def render_config(user):
         st.info("As regras automáticas (Fase 2) estão ocultas. Modo Portaria Ativado.")
     else:
         st.subheader("🔗 Integração Opentech")
-        st.write("A Opentech possui milhares de rotas ativas. Se uma nova rota modelo foi criada no SIL, você precisa sincronizar o banco local do SUPER GR para que ela apareça na lista de Novo Monitoramento.")
+        st.write("A Opentech possui milhares de rotas ativas. Se uma nova rota modelo foi criada no SIL, você precisa sincronizar o banco local do BBM RISK para que ela apareça na lista de Novo Monitoramento.")
         
         if st.button("🔄 Sincronizar Rotas do SIL", use_container_width=True):
             with st.spinner("Conectando à Opentech e baixando catálogo de rotas (Isso pode levar até 2 minutos)..."):
@@ -840,7 +840,7 @@ def render_ae_express(user):
                         st.download_button(
                             label=f"⬇️ Baixar AE #{cd_v}.pdf",
                             data=pdf_bytes,
-                            file_name=f"AE_{cd_v}_SuperGR.pdf",
+                            file_name=f"AE_{cd_v}_BBMRisk.pdf",
                             mime="application/pdf",
                             use_container_width=True,
                             key="dl_pdf_ae_topo"
@@ -912,7 +912,7 @@ def render_ae_express(user):
                                 st.download_button(
                                     label=f"⬇️ Baixar AE #{v['cd_viagem']}.pdf",
                                     data=pdf_bytes,
-                                    file_name=f"AE_{v['cd_viagem']}_SuperGR.pdf",
+                                    file_name=f"AE_{v['cd_viagem']}_BBMRisk.pdf",
                                     mime="application/pdf",
                                     use_container_width=True,
                                     key=f"dl_{v['id']}"

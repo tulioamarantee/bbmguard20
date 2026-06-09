@@ -3,7 +3,7 @@ import os
 
 def apply_custom_branding(user=None):
     """
-    Aplica o tema Dark/Premium profissional para o Projeto Super GR.
+    Aplica o tema Dark/Premium profissional para o BBM Risk.
     """
     # Adicionar as fontes modernas do Google Fonts
     st.markdown("""
@@ -100,7 +100,7 @@ def apply_custom_branding(user=None):
 
 def render_header(user=None):
     """
-    Cabeçalho Premium do Projeto Super GR.
+    Cabeçalho Premium do BBM Risk.
     """
     st.markdown("""
         <div style="background: linear-gradient(135deg, #0d1b2a, #1b263b); 
@@ -129,7 +129,7 @@ def render_header(user=None):
                            letter-spacing: 1.5px; 
                            font-size: 2.1rem; 
                            text-shadow: 0 2px 8px rgba(0,0,0,0.5);">
-                    PROJETO SUPER GR
+                    BBM RISK
                 </h1>
                 <p style="color: #a3b18a !important; 
                           margin: 4px 0 0 0; 
@@ -175,7 +175,7 @@ def render_sil_status(status, data_consulta):
 
 def render_driver_badge(status_interno, recentes=0):
     """
-    Badges estilizados para Portaria do Projeto Super GR.
+    Badges estilizados para Portaria do BBM Risk.
     """
     if status_interno == 'Ativo':
         st.markdown('<span class="badge badge-sucesso">✔ LIBERADO</span>', unsafe_allow_html=True)
