@@ -6,7 +6,6 @@ cleanup_users.py
 *.jpg
 *.xlsx
 *.PDF
-*.db
 *.xml
 *.pyc
 .streamlit/
