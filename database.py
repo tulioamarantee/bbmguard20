@@ -1,23 +1,92 @@
-import sqlite3
-import hashlib
 import os
+import hashlib
+import psycopg2
+import psycopg2.extras
 
-DB_NAME = "guard_gr.db"
+try:
+    import streamlit as st
+    SUPABASE_URL = os.environ.get("SUPABASE_URL", st.secrets.get("SUPABASE_URL", ""))
+except Exception:
+    SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
+
+# Fallback para SQLite local caso o Postgres não esteja configurado
+# Isso evita o sistema quebrar completamente se o usuário ainda não colocou o SUPABASE_URL
+IS_POSTGRES = bool(SUPABASE_URL)
+
+if not IS_POSTGRES:
+    import sqlite3
 
 def get_connection():
-    conn = sqlite3.connect(DB_NAME)
-    conn.row_factory = sqlite3.Row
-    return conn
+    if IS_POSTGRES:
+        conn = psycopg2.connect(SUPABASE_URL, cursor_factory=psycopg2.extras.DictCursor)
+        return ConnWrapper(conn)
+    else:
+        conn = sqlite3.connect("guard_gr.db")
+        conn.row_factory = sqlite3.Row
+        return ConnWrapper(conn)
+
+class DBWrapper:
+    """Wrapper para unificar sintaxe do Postgres e SQLite"""
+    def __init__(self, cursor):
+        self.cursor = cursor
+
+    def execute(self, query, params=None):
+        if not IS_POSTGRES:
+            # Converte sintaxe Postgres (%s) para SQLite (?)
+            if params:
+                query = query.replace("%s", "?")
+            # Trata o RETURNING id
+            is_returning = "RETURNING id" in query
+            if is_returning:
+                query = query.replace("RETURNING id", "").strip()
+            
+            self.cursor.execute(query, params or ())
+            
+            if is_returning:
+                self.last_id = self.cursor.lastrowid
+        else:
+            self.cursor.execute(query, params or ())
+            
+    def fetchone(self):
+        if not IS_POSTGRES and hasattr(self, 'last_id'):
+            res = {"id": self.last_id, 0: self.last_id}
+            del self.last_id
+            return res
+        return self.cursor.fetchone()
+
+    def fetchall(self):
+        return self.cursor.fetchall()
+        
+    @property
+    def rowcount(self):
+        return self.cursor.rowcount
+
+class ConnWrapper:
+    """Wrapper para unificar connection do Postgres e SQLite"""
+    def __init__(self, conn):
+        self.conn = conn
+        
+    def cursor(self):
+        return DBWrapper(self.conn.cursor())
+        
+    def commit(self):
+        self.conn.commit()
+        
+    def close(self):
+        self.conn.close()
 
 def init_db():
-    db_exists = os.path.exists(DB_NAME)
     conn = get_connection()
+    # Usando o wrapper nativo só para a criação
     cursor = conn.cursor()
 
+    # Tipos e restrições dependem do banco
+    PKEY = "SERIAL PRIMARY KEY" if IS_POSTGRES else "INTEGER PRIMARY KEY AUTOINCREMENT"
+
     # Tabela de Empresas
-    cursor.execute('''
+    cursor.execute(f'''
         CREATE TABLE IF NOT EXISTS empresas (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id {PKEY},
             nome TEXT NOT NULL,
             logo_url TEXT,
             cor_primaria TEXT DEFAULT '#003366',
@@ -32,38 +101,25 @@ def init_db():
     ''')
 
     # Tabela de Usuários
-    cursor.execute('''
+    cursor.execute(f'''
         CREATE TABLE IF NOT EXISTS usuarios (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nome TEXT NOT NULL,
-        login TEXT UNIQUE NOT NULL,
-        senha TEXT NOT NULL,
-        empresa_id INTEGER,
-        role TEXT DEFAULT 'Portaria',
-        cpf TEXT,
-        data_nascimento TEXT,
-        email TEXT,
-        FOREIGN KEY (empresa_id) REFERENCES empresas (id)
-    )
+            id {PKEY},
+            nome TEXT NOT NULL,
+            login TEXT UNIQUE NOT NULL,
+            senha TEXT NOT NULL,
+            empresa_id INTEGER,
+            role TEXT DEFAULT 'Portaria',
+            cpf TEXT,
+            data_nascimento TEXT,
+            email TEXT,
+            FOREIGN KEY (empresa_id) REFERENCES empresas (id)
+        )
     ''')
-    # Garantir colunas adicionais caso a tabela já exista sem elas
-    try:
-        cursor.execute('ALTER TABLE usuarios ADD COLUMN cpf TEXT')
-    except Exception:
-        pass
-    try:
-        cursor.execute('ALTER TABLE usuarios ADD COLUMN data_nascimento TEXT')
-    except Exception:
-        pass
-    try:
-        cursor.execute('ALTER TABLE usuarios ADD COLUMN email TEXT')
-    except Exception:
-        pass
 
     # Tabela de Motoristas
-    cursor.execute('''
+    cursor.execute(f'''
         CREATE TABLE IF NOT EXISTS motoristas (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id {PKEY},
             nome TEXT NOT NULL,
             cpf TEXT NOT NULL,
             cnh TEXT,
@@ -72,43 +128,17 @@ def init_db():
             status_sil TEXT DEFAULT 'Não consultado',
             data_consulta_sil TEXT,
             data_fim_suspensao TEXT,
+            data_expiracao TEXT,
             empresa_id INTEGER,
             UNIQUE(cpf, empresa_id),
             FOREIGN KEY (empresa_id) REFERENCES empresas (id)
         )
     ''')
 
-    try:
-        cursor.execute('ALTER TABLE motoristas ADD COLUMN data_expiracao TEXT')
-    except Exception:
-        pass
-
-    # Tabela de Veículos (DLG Check)
-    cursor.execute('''
+    # Tabela de Veículos
+    cursor.execute(f'''
         CREATE TABLE IF NOT EXISTS veiculos (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            placa TEXT NOT NULL,
-            tipo_veiculo TEXT,
-            status_sil TEXT DEFAULT 'Não consultado',
-            validade TEXT,
-            ultima_posicao TEXT,
-            status_checklist TEXT,
-            data_consulta TEXT,
-            empresa_id INTEGER,
-            UNIQUE(placa, empresa_id),
-            FOREIGN KEY (empresa_id) REFERENCES empresas (id)
-        )
-    ''')
-
-    try:
-        cursor.execute('ALTER TABLE motoristas ADD COLUMN data_expiracao TEXT')
-    except Exception:
-        pass
-
-    # Tabela de Veículos (DLG Check)
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS veiculos (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id {PKEY},
             placa TEXT NOT NULL,
             tipo_veiculo TEXT,
             status_sil TEXT DEFAULT 'Não consultado',
@@ -123,21 +153,11 @@ def init_db():
             FOREIGN KEY (empresa_id) REFERENCES empresas (id)
         )
     ''')
-    
-    try:
-        cursor.execute('ALTER TABLE veiculos ADD COLUMN rastreadores TEXT')
-    except Exception:
-        pass
-    try:
-        cursor.execute('ALTER TABLE veiculos ADD COLUMN segundo_rastreador TEXT')
-    except Exception:
-        pass
 
-
-    # Tabela de Ocorrências (Mantida para Fase 2)
-    cursor.execute('''
+    # Tabela de Ocorrências
+    cursor.execute(f'''
         CREATE TABLE IF NOT EXISTS ocorrencias (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id {PKEY},
             tipo TEXT NOT NULL,
             motivo TEXT,
             gravidade TEXT,
@@ -151,10 +171,10 @@ def init_db():
         )
     ''')
 
-    # Tabela de Histórico de Consultas / Portaria (Nova funcionalidade)
-    cursor.execute('''
+    # Histórico de Consultas
+    cursor.execute(f'''
         CREATE TABLE IF NOT EXISTS registros_acesso (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id {PKEY},
             motorista_id INTEGER,
             cpf TEXT,
             status_resultado TEXT,
@@ -167,10 +187,10 @@ def init_db():
         )
     ''')
 
-    # Tabela de Autorizações de Embarque / Viagens (Nova funcionalidade do BBM Risk)
-    cursor.execute('''
+    # Viagens
+    cursor.execute(f'''
         CREATE TABLE IF NOT EXISTS viagens (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id {PKEY},
             cd_programacao INTEGER,
             cd_viagem INTEGER,
             cpf_motorista TEXT NOT NULL,
@@ -193,18 +213,14 @@ def init_db():
         )
     ''')
 
-    try:
-        cursor.execute('ALTER TABLE viagens ADD COLUMN previsao_fim TEXT')
-    except Exception:
-        pass
-    try:
-        cursor.execute('ALTER TABLE viagens ADD COLUMN numero_isca TEXT')
-    except Exception:
-        pass
-
     conn.commit()
 
-    if not db_exists:
+    # Verificar se a tabela de empresas está vazia para popular
+    cursor.execute('SELECT COUNT(*) FROM empresas')
+    count = cursor.fetchone()
+    if (isinstance(count, (list, tuple)) and count[0] == 0) or (isinstance(count, dict) and list(count.values())[0] == 0) or (isinstance(count, int) and count == 0):
+        seed_data(conn)
+    elif count is not None and hasattr(count, '__getitem__') and count[0] == 0:
         seed_data(conn)
     
     conn.close()
@@ -215,29 +231,29 @@ def seed_data(conn):
     # Inserir Empresa DLG
     cursor.execute('''
         INSERT INTO empresas (nome, logo_url, cor_primaria, cor_secundaria)
-        VALUES (?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s) RETURNING id
     ''', ('DLG', '', '#004085', '#FFFFFF'))
-    dlg_id = cursor.lastrowid
+    row = cursor.fetchone()
+    dlg_id = row[0] if row else 1
 
-    # Inserir Usuários para DLG (Senha padrão: admin123)
     senha_hash = hashlib.sha256("admin123".encode()).hexdigest()
     
     cursor.execute('''
         INSERT INTO usuarios (nome, login, senha, empresa_id, role)
-        VALUES (?, ?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s, %s)
     ''', ('Administrador DLG', 'admin', senha_hash, dlg_id, 'Admin'))
 
-
-    # Inserir uma segunda empresa para testar multi-tenancy
+    # Logistica Express
     cursor.execute('''
         INSERT INTO empresas (nome, logo_url, cor_primaria, cor_secundaria)
-        VALUES (?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s) RETURNING id
     ''', ('Logistica Express', 'https://via.placeholder.com/150', '#FF5733', '#FFFFFF'))
-    log_exp_id = cursor.lastrowid
+    row = cursor.fetchone()
+    log_exp_id = row[0] if row else 2
 
     cursor.execute('''
         INSERT INTO usuarios (nome, login, senha, empresa_id, role)
-        VALUES (?, ?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s, %s)
     ''', ('Admin Express', 'admin_exp', senha_hash, log_exp_id, 'Admin'))
 
     conn.commit()

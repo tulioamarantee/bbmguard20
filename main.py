@@ -387,7 +387,7 @@ def render_veiculos(user):
             # Procura se o veículo já existe cadastrado no banco de dados local
             conn = services.get_connection()
             cursor = conn.cursor()
-            cursor.execute("SELECT id FROM veiculos WHERE placa = ? AND empresa_id = ?", (busca_limpa, user['empresa_id']))
+            cursor.execute("SELECT id FROM veiculos WHERE placa = %s AND empresa_id = %s", (busca_limpa, user['empresa_id']))
             veiculo_local = cursor.fetchone()
             conn.close()
             

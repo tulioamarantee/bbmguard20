@@ -60,7 +60,7 @@ def autenticar_usuario(login, senha):
         SELECT u.*, e.nome as empresa_nome, e.logo_url, e.cor_primaria, e.cor_secundaria, u.role
         FROM usuarios u
         JOIN empresas e ON u.empresa_id = e.id
-        WHERE u.login = ? AND u.senha = ?
+        WHERE u.login = %s AND u.senha = %s
     ''', (login, hash_password(senha)))
     user = cursor.fetchone()
     conn.close()
@@ -115,7 +115,7 @@ def consultar_opentech(cpf, token_empresa, usuario_nome="Sistema"):
         }
     except Exception as e:
         sil_logger.exception(f"FATAL | Erro ao consultar Opentech para CPF {cpf_limpo}")
-        return {"nome": "Erro Fatal", "status": "Erro de Conexão", "data_consulta": datetime.now().strftime("%d/%m/%Y %H:%M"), "validade": "N/I"}
+        return {"nome": "Erro Fatal", "status": f"Erro de Conexão: {str(e)}", "data_consulta": datetime.now().strftime("%d/%m/%Y %H:%M"), "validade": "N/I"}
 
 # --- GESTÃO DE MOTORISTAS ---
 def listar_motoristas(empresa_id, busca=""):
@@ -125,12 +125,12 @@ def listar_motoristas(empresa_id, busca=""):
         SELECT m.*, MAX(r.data_hora) as ultima_consulta 
         FROM motoristas m 
         LEFT JOIN registros_acesso r ON m.id = r.motorista_id AND r.empresa_id = m.empresa_id
-        WHERE m.empresa_id = ?
+        WHERE m.empresa_id = %s
     """
     params = [empresa_id]
     
     if busca:
-        query += " AND (m.nome LIKE ? OR m.cpf LIKE ?)"
+        query += " AND (m.nome LIKE %s OR m.cpf LIKE %s)"
         params.extend([f"%{busca}%", f"%{busca}%"])
         
     query += " GROUP BY m.id ORDER BY COALESCE(ultima_consulta, '') DESC, m.id DESC"
@@ -150,7 +150,7 @@ def verificar_validade_existente(cpf, empresa_id):
     cursor = conn.cursor()
     cursor.execute('''
         SELECT data_expiracao, nome, status_sil, data_consulta_sil FROM motoristas 
-        WHERE cpf = ? AND empresa_id = ?
+        WHERE cpf = %s AND empresa_id = %s
     ''', (cpf_limpo, empresa_id))
     res = cursor.fetchone()
     conn.close()
@@ -179,7 +179,7 @@ def cadastrar_motorista(dados, empresa_id):
     try:
         cursor.execute('''
             INSERT INTO motoristas (nome, cpf, cnh, categoria, status_sil, data_consulta_sil, data_expiracao, empresa_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         ''', (dados['nome'], dados['cpf'], dados['cnh'], dados['categoria'], 
               dados['status_sil'], dados['data_consulta_sil'], dados.get('validade', 'N/I'), empresa_id))
         conn.commit()
@@ -200,7 +200,7 @@ def cadastrar_usuario(nome, login, senha, cpf, data_nascimento, email, empresa_i
         hashed = hash_password(senha)
         cursor.execute('''
             INSERT INTO usuarios (nome, login, senha, cpf, data_nascimento, email, empresa_id, role)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         ''', (nome, login, hashed, cpf, data_nascimento, email, empresa_id, role))
         conn.commit()
         return True, f"Usuário {nome} criado com sucesso."
@@ -220,7 +220,7 @@ def listar_usuarios(empresa_id):
     cursor.execute('''
         SELECT id, nome, login, cpf, data_nascimento, email, role
         FROM usuarios
-        WHERE empresa_id = ?
+        WHERE empresa_id = %s
         ORDER BY nome
     ''', (empresa_id,))
     usuarios = [dict(row) for row in cursor.fetchall()]
@@ -239,14 +239,14 @@ def atualizar_usuario(usuario_id, nome, email, role, nova_senha=None):
             hashed = hash_password(nova_senha)
             cursor.execute('''
                 UPDATE usuarios
-                SET nome = ?, email = ?, role = ?, senha = ?
-                WHERE id = ?
+                SET nome = %s, email = %s, role = %s, senha = %s
+                WHERE id = %s
             ''', (nome, email, role, hashed, usuario_id))
         else:
             cursor.execute('''
                 UPDATE usuarios
-                SET nome = ?, email = ?, role = ?
-                WHERE id = ?
+                SET nome = %s, email = %s, role = %s
+                WHERE id = %s
             ''', (nome, email, role, usuario_id))
         conn.commit()
         return True, f"Usuário {nome} atualizado com sucesso."
@@ -262,7 +262,7 @@ def excluir_usuario(usuario_id):
     conn = get_connection()
     cursor = conn.cursor()
     try:
-        cursor.execute('DELETE FROM usuarios WHERE id = ?', (usuario_id,))
+        cursor.execute('DELETE FROM usuarios WHERE id = %s', (usuario_id,))
         conn.commit()
         return True, "Usuário excluído com sucesso."
     except Exception as e:
@@ -366,7 +366,7 @@ def importar_motoristas_excel(file, empresa_id, usuario_nome):
                     # Se já existe, vamos forçar a atualização dos dados SIL
                     conn = get_connection()
                     cursor = conn.cursor()
-                    cursor.execute("SELECT id FROM motoristas WHERE cpf = ? AND empresa_id = ?", (cpf_limpo, empresa_id))
+                    cursor.execute("SELECT id FROM motoristas WHERE cpf = %s AND empresa_id = %s", (cpf_limpo, empresa_id))
                     mot_id = cursor.fetchone()[0]
                     conn.close()
                     
@@ -507,7 +507,7 @@ def importar_motoristas_pdf(file, empresa_id, usuario_nome):
                     # Se já existe, vamos forçar a atualização dos dados SIL
                     conn = get_connection()
                     cursor = conn.cursor()
-                    cursor.execute("SELECT id FROM motoristas WHERE cpf = ? AND empresa_id = ?", (cpf_limpo, empresa_id))
+                    cursor.execute("SELECT id FROM motoristas WHERE cpf = %s AND empresa_id = %s", (cpf_limpo, empresa_id))
                     mot = cursor.fetchone()
                     conn.close()
                     
@@ -634,7 +634,7 @@ def importar_motoristas_txt(file, empresa_id, usuario_nome):
                 else:
                     conn = get_connection()
                     cursor = conn.cursor()
-                    cursor.execute("SELECT id FROM motoristas WHERE cpf = ? AND empresa_id = ?", (cpf_limpo, empresa_id))
+                    cursor.execute("SELECT id FROM motoristas WHERE cpf = %s AND empresa_id = %s", (cpf_limpo, empresa_id))
                     mot = cursor.fetchone()
                     conn.close()
                     
@@ -690,9 +690,9 @@ def atualizar_sil_motorista(motorista_id, cpf, empresa_id, usuario_nome):
     try:
         cursor.execute('''
             UPDATE motoristas 
-            SET nome = ?, cnh = ?, categoria = ?, status_sil = ?, 
-                data_consulta_sil = ?, data_expiracao = ?
-            WHERE id = ? AND empresa_id = ?
+            SET nome = %s, cnh = %s, categoria = %s, status_sil = %s, 
+                data_consulta_sil = %s, data_expiracao = %s
+            WHERE id = %s AND empresa_id = %s
         ''', (res['nome'], res['cnh'], res['categoria'], res['status'], 
               res['data_consulta'], res['validade'], motorista_id, empresa_id))
         conn.commit()
@@ -707,8 +707,8 @@ def editar_motorista(motorista_id, dados, empresa_id):
     cursor = conn.cursor()
     cursor.execute('''
         UPDATE motoristas 
-        SET nome = ?, cnh = ?, categoria = ?
-        WHERE id = ? AND empresa_id = ?
+        SET nome = %s, cnh = %s, categoria = %s
+        WHERE id = %s AND empresa_id = %s
     ''', (dados['nome'], dados['cnh'], dados['categoria'], motorista_id, empresa_id))
     conn.commit()
     conn.close()
@@ -718,8 +718,8 @@ def deletar_motorista(motorista_id, empresa_id):
     conn = get_connection()
     cursor = conn.cursor()
     # Deletar ocorrências primeiro (Integridade)
-    cursor.execute("DELETE FROM ocorrencias WHERE motorista_id = ? AND empresa_id = ?", (motorista_id, empresa_id))
-    cursor.execute("DELETE FROM motoristas WHERE id = ? AND empresa_id = ?", (motorista_id, empresa_id))
+    cursor.execute("DELETE FROM ocorrencias WHERE motorista_id = %s AND empresa_id = %s", (motorista_id, empresa_id))
+    cursor.execute("DELETE FROM motoristas WHERE id = %s AND empresa_id = %s", (motorista_id, empresa_id))
     conn.commit()
     conn.close()
     return "Motorista e histórico removidos definitivamente."
@@ -729,8 +729,8 @@ def editar_ocorrencia(ocorrencia_id, motivo, gravidade, empresa_id):
     cursor = conn.cursor()
     cursor.execute('''
         UPDATE ocorrencias 
-        SET motivo = ?, gravidade = ?
-        WHERE id = ? AND empresa_id = ?
+        SET motivo = %s, gravidade = %s
+        WHERE id = %s AND empresa_id = %s
     ''', (motivo, gravidade, ocorrencia_id, empresa_id))
     conn.commit()
     conn.close()
@@ -742,13 +742,13 @@ def registrar_ocorrencia(motorista_id, tipo, motivo, gravidade, data, usuario_id
     cursor = conn.cursor()
     
     # Buscar configurações da empresa
-    cursor.execute("SELECT * FROM empresas WHERE id = ?", (empresa_id,))
+    cursor.execute("SELECT * FROM empresas WHERE id = %s", (empresa_id,))
     config = cursor.fetchone()
     
     # 1. Registrar a ocorrência
     cursor.execute('''
         INSERT INTO ocorrencias (tipo, motivo, gravidade, data, usuario_id, motorista_id, empresa_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
     ''', (tipo, motivo, gravidade, data, usuario_id, motorista_id, empresa_id))
     
     feedback = f"Ocorrência de {tipo} registrada."
@@ -757,15 +757,15 @@ def registrar_ocorrencia(motorista_id, tipo, motivo, gravidade, data, usuario_id
     if tipo == "Suspensão":
         cursor.execute('''
             UPDATE motoristas 
-            SET status_interno = 'Suspenso', data_fim_suspensao = ?
-            WHERE id = ?
+            SET status_interno = 'Suspenso', data_fim_suspensao = %s
+            WHERE id = %s
         ''', (data_fim_suspensao, motorista_id))
     
     elif tipo == "Exclusão":
         cursor.execute('''
             UPDATE motoristas 
             SET status_interno = 'Excluído'
-            WHERE id = ?
+            WHERE id = %s
         ''', (motorista_id,))
         
     elif tipo == "Advertência":
@@ -777,22 +777,22 @@ def registrar_ocorrencia(motorista_id, tipo, motivo, gravidade, data, usuario_id
         data_limite = (datetime.now() - timedelta(days=intervalo)).strftime("%Y-%m-%d")
         cursor.execute('''
             SELECT COUNT(*) FROM ocorrencias 
-            WHERE motorista_id = ? AND tipo = 'Advertência' AND data >= ?
+            WHERE motorista_id = %s AND tipo = 'Advertência' AND data >= %s
         ''', (motorista_id, data_limite))
         
         total_advertencias = cursor.fetchone()[0]
         
         if total_advertencias >= limite_adv:
             # 1. Verificar quantas suspensões o motorista já teve
-            cursor.execute("SELECT COUNT(*) FROM ocorrencias WHERE motorista_id = ? AND tipo = 'Suspensão'", (motorista_id,))
+            cursor.execute("SELECT COUNT(*) FROM ocorrencias WHERE motorista_id = %s AND tipo = 'Suspensão'", (motorista_id,))
             total_suspensoes = cursor.fetchone()[0]
             
             # 2. Decidir ação: Exclusão ou Suspensão Escalonada
             if total_suspensoes >= limite_susp_exclusao:
-                cursor.execute("UPDATE motoristas SET status_interno = 'Excluído' WHERE id = ?", (motorista_id,))
+                cursor.execute("UPDATE motoristas SET status_interno = 'Excluído' WHERE id = %s", (motorista_id,))
                 cursor.execute('''
                     INSERT INTO ocorrencias (tipo, motivo, gravidade, data, usuario_id, motorista_id, empresa_id)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
                 ''', ("Exclusão", f"Gatilho: Exclusão Automática por excesso de suspensões (>={limite_susp_exclusao}).", 
                       "Grave", datetime.now().strftime("%Y-%m-%d"), 0, motorista_id, empresa_id))
                 feedback += " Crítico: Motorista atingiu limite de suspensões e foi EXCLUÍDO automaticamente."
@@ -803,14 +803,14 @@ def registrar_ocorrencia(motorista_id, tipo, motivo, gravidade, data, usuario_id
                 
                 cursor.execute('''
                     UPDATE motoristas 
-                    SET status_interno = 'Suspenso', data_fim_suspensao = ?
-                    WHERE id = ?
+                    SET status_interno = 'Suspenso', data_fim_suspensao = %s
+                    WHERE id = %s
                 ''', (data_fim, motorista_id))
                 
                 # Log de Suspensão Automática
                 cursor.execute('''
                     INSERT INTO ocorrencias (tipo, motivo, gravidade, data, usuario_id, motorista_id, empresa_id)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
                 ''', ("Suspensão", f"Gatilho: Suspensão Automática ({dias} dias) por excesso de advertências.", 
                       "Grave", datetime.now().strftime("%Y-%m-%d"), 0, motorista_id, empresa_id))
                 
@@ -825,10 +825,10 @@ def get_prontuario(motorista_id, empresa_id):
     cursor = conn.cursor()
     
     # Buscar configurações e CPF do motorista
-    cursor.execute("SELECT * FROM empresas WHERE id = ?", (empresa_id,))
+    cursor.execute("SELECT * FROM empresas WHERE id = %s", (empresa_id,))
     config = cursor.fetchone()
     
-    cursor.execute("SELECT * FROM motoristas WHERE id = ? AND empresa_id = ?", (motorista_id, empresa_id))
+    cursor.execute("SELECT * FROM motoristas WHERE id = %s AND empresa_id = %s", (motorista_id, empresa_id))
     motorista = cursor.fetchone()
     cpf = motorista['cpf']
     
@@ -841,7 +841,7 @@ def get_prontuario(motorista_id, empresa_id):
             LEFT JOIN usuarios u ON o.usuario_id = u.id
             JOIN empresas e ON o.empresa_id = e.id
             JOIN motoristas m ON o.motorista_id = m.id
-            WHERE m.cpf = ? AND (o.empresa_id = ? OR e.compartilhar_historico = 1)
+            WHERE m.cpf = %s AND (o.empresa_id = %s OR e.compartilhar_historico = 1)
             ORDER BY o.data DESC, o.id DESC
         ''', (cpf, empresa_id))
     else:
@@ -850,7 +850,7 @@ def get_prontuario(motorista_id, empresa_id):
             FROM ocorrencias o
             LEFT JOIN usuarios u ON o.usuario_id = u.id
             JOIN empresas e ON o.empresa_id = e.id
-            WHERE o.motorista_id = ? AND o.empresa_id = ?
+            WHERE o.motorista_id = %s AND o.empresa_id = %s
             ORDER BY o.data DESC, o.id DESC
         ''', (motorista_id, empresa_id))
         
@@ -861,7 +861,7 @@ def get_prontuario(motorista_id, empresa_id):
     data_limite = (datetime.now() - timedelta(days=intervalo)).strftime("%Y-%m-%d")
     cursor.execute('''
         SELECT COUNT(*) FROM ocorrencias 
-        WHERE motorista_id = ? AND tipo = 'Advertência' AND data >= ?
+        WHERE motorista_id = %s AND tipo = 'Advertência' AND data >= %s
     ''', (motorista_id, data_limite))
     recentes = cursor.fetchone()[0]
     
@@ -878,30 +878,30 @@ def get_stats_dashboard(empresa_id):
     hoje_str = hoje_dt.strftime("%Y-%m-%d")
     
     # Consultas hoje (Total de pesquisas na portaria)
-    cursor.execute("SELECT COUNT(*) FROM registros_acesso WHERE empresa_id = ? AND data_hora LIKE ?", (empresa_id, f"{hoje_str}%"))
+    cursor.execute("SELECT COUNT(*) FROM registros_acesso WHERE empresa_id = %s AND data_hora LIKE %s", (empresa_id, f"{hoje_str}%"))
     consultas_hoje = cursor.fetchone()[0]
     
     # Cadastros Ativos (Status Interno Ativo e Data Expiração > Hoje)
     cursor.execute('''
         SELECT COUNT(*) FROM motoristas 
-        WHERE empresa_id = ? AND status_interno = 'Ativo' 
-        AND (data_expiracao >= ? OR data_expiracao = 'N/I')
+        WHERE empresa_id = %s AND status_interno = 'Ativo' 
+        AND (data_expiracao >= %s OR data_expiracao = 'N/I')
     ''', (empresa_id, hoje_str))
     cadastros_ativos = cursor.fetchone()[0]
 
     # Cadastros Vencidos (Status Interno Ativo mas Data Expiração < Hoje)
     cursor.execute('''
         SELECT COUNT(*) FROM motoristas 
-        WHERE empresa_id = ? AND status_interno = 'Ativo' 
-        AND data_expiracao < ? AND data_expiracao != 'N/I'
+        WHERE empresa_id = %s AND status_interno = 'Ativo' 
+        AND data_expiracao < %s AND data_expiracao != 'N/I'
     ''', (empresa_id, hoje_str))
     cadastros_vencidos = cursor.fetchone()[0]
     
     # Liberações Hoje (Consultas que retornaram Validado ou Liberado hoje)
     cursor.execute('''
         SELECT COUNT(*) FROM registros_acesso 
-        WHERE empresa_id = ? AND (status_resultado LIKE '%Validado%' OR status_resultado LIKE '%Liberado%')
-        AND data_hora LIKE ?
+        WHERE empresa_id = %s AND (status_resultado LIKE '%Validado%' OR status_resultado LIKE '%Liberado%')
+        AND data_hora LIKE %s
     ''', (empresa_id, f"{hoje_str}%"))
     liberacoes_hoje = cursor.fetchone()[0]
     
@@ -923,7 +923,7 @@ def registrar_consulta_portaria(motorista_id, cpf, status, usuario_id, empresa_i
     agora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     cursor.execute('''
         INSERT INTO registros_acesso (motorista_id, cpf, status_resultado, data_hora, usuario_id, empresa_id)
-        VALUES (?, ?, ?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s, %s, %s)
     ''', (motorista_id, cpf, status, agora, usuario_id, empresa_id))
     conn.commit()
     conn.close()
@@ -939,9 +939,9 @@ def listar_historico_acessos(empresa_id, limite=10):
         FROM registros_acesso r
         LEFT JOIN motoristas m ON r.motorista_id = m.id
         LEFT JOIN usuarios u ON r.usuario_id = u.id
-        WHERE r.empresa_id = ?
+        WHERE r.empresa_id = %s
         ORDER BY r.data_hora DESC
-        LIMIT ?
+        LIMIT %s
     ''', (empresa_id, limite))
     acessos = [dict(row) for row in cursor.fetchall()]
     conn.close()
@@ -973,17 +973,17 @@ def consultar_opentech_veiculo(placa, token_empresa, usuario_nome="Sistema"):
         }
     except Exception as e:
         sil_logger.exception(f"FATAL | Erro ao consultar Opentech para Placa {placa_limpa}")
-        return {"placa": placa_limpa, "status": "Erro de Conexão", "data_consulta": datetime.now().strftime("%d/%m/%Y %H:%M"), "validade": "N/I"}
+        return {"placa": placa_limpa, "status": f"Erro de Conexão: {str(e)}", "data_consulta": datetime.now().strftime("%d/%m/%Y %H:%M"), "validade": "N/I"}
 
 def listar_veiculos(empresa_id, busca=""):
     conn = get_connection()
     cursor = conn.cursor()
-    query = "SELECT * FROM veiculos WHERE empresa_id = ?"
+    query = "SELECT * FROM veiculos WHERE empresa_id = %s"
     params = [empresa_id]
     
     if busca:
         busca_limpa = busca.upper().replace("-", "").strip()
-        query += " AND placa LIKE ?"
+        query += " AND placa LIKE %s"
         params.append(f"%{busca_limpa}%")
         
     query += " ORDER BY id DESC"
@@ -999,7 +999,7 @@ def buscar_motorista_por_cpf(cpf, empresa_id):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute(
-        'SELECT * FROM motoristas WHERE cpf = ? AND empresa_id = ?',
+        'SELECT * FROM motoristas WHERE cpf = %s AND empresa_id = %s',
         (cpf_limpo, empresa_id)
     )
     mot = cursor.fetchone()
@@ -1012,7 +1012,7 @@ def buscar_veiculo_por_placa(placa, empresa_id):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute(
-        'SELECT * FROM veiculos WHERE placa = ? AND empresa_id = ?',
+        'SELECT * FROM veiculos WHERE placa = %s AND empresa_id = %s',
         (placa_limpa, empresa_id)
     )
     veic = cursor.fetchone()
@@ -1026,7 +1026,7 @@ def verificar_validade_existente_veiculo(placa, empresa_id):
     cursor = conn.cursor()
     cursor.execute('''
         SELECT validade, status_sil, data_consulta FROM veiculos 
-        WHERE placa = ? AND empresa_id = ?
+        WHERE placa = %s AND empresa_id = %s
     ''', (placa_limpa, empresa_id))
     res = cursor.fetchone()
     conn.close()
@@ -1041,7 +1041,7 @@ def cadastrar_veiculo(dados, empresa_id):
     try:
         cursor.execute('''
             INSERT INTO veiculos (placa, tipo_veiculo, status_sil, validade, ultima_posicao, status_checklist, data_consulta, empresa_id, rastreadores, segundo_rastreador)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ''', (dados['placa'], dados['tipo_veiculo'], dados['status'], 
               dados['validade'], dados['ultima_posicao'], dados['checklist'], dados['data_consulta'], empresa_id, dados.get('rastreadores', 'N/I'), dados.get('segundo_rastreador', 'Não possui')))
         conn.commit()
@@ -1063,10 +1063,10 @@ def atualizar_sil_veiculo(veiculo_id, placa, empresa_id, usuario_nome):
     try:
         cursor.execute('''
             UPDATE veiculos 
-            SET tipo_veiculo = ?, status_sil = ?, validade = ?, 
-                ultima_posicao = ?, status_checklist = ?, data_consulta = ?,
-                rastreadores = ?, segundo_rastreador = ?
-            WHERE id = ? AND empresa_id = ?
+            SET tipo_veiculo = %s, status_sil = %s, validade = %s, 
+                ultima_posicao = %s, status_checklist = %s, data_consulta = %s,
+                rastreadores = %s, segundo_rastreador = %s
+            WHERE id = %s AND empresa_id = %s
         ''', (res['tipo_veiculo'], res['status'], res['validade'], 
               res['ultima_posicao'], res['checklist'], res['data_consulta'], 
               res.get('rastreadores', 'N/I'), res.get('segundo_rastreador', 'Não possui'), veiculo_id, empresa_id))
@@ -1221,7 +1221,7 @@ def processar_lote_veiculos(placas_encontradas, empresa_id, usuario_nome, origem
             else:
                 conn = get_connection()
                 cursor = conn.cursor()
-                cursor.execute("SELECT id FROM veiculos WHERE placa = ? AND empresa_id = ?", (placa, empresa_id))
+                cursor.execute("SELECT id FROM veiculos WHERE placa = %s AND empresa_id = %s", (placa, empresa_id))
                 veic = cursor.fetchone()
                 conn.close()
                 
@@ -1291,7 +1291,7 @@ def criar_ae_express(dados, empresa_id, usuario_id, modo_simulacao=False):
     # 1. Obter nome do Motorista
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT nome FROM motoristas WHERE cpf = ? AND empresa_id = ?", (cpf_motorista, empresa_id))
+    cursor.execute("SELECT nome FROM motoristas WHERE cpf = %s AND empresa_id = %s", (cpf_motorista, empresa_id))
     mot = cursor.fetchone()
     conn.close()
     
@@ -1308,7 +1308,7 @@ def criar_ae_express(dados, empresa_id, usuario_id, modo_simulacao=False):
     # 2. Obter dados do Veículo
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT tipo_veiculo FROM veiculos WHERE placa = ? AND empresa_id = ?", (placa_cavalo, empresa_id))
+    cursor.execute("SELECT tipo_veiculo FROM veiculos WHERE placa = %s AND empresa_id = %s", (placa_cavalo, empresa_id))
     veic = cursor.fetchone()
     conn.close()
     
@@ -1336,7 +1336,7 @@ def criar_ae_express(dados, empresa_id, usuario_id, modo_simulacao=False):
             cursor.execute('''
                 INSERT INTO viagens (cd_programacao, cd_viagem, cpf_motorista, nome_motorista, placa_cavalo, placa_carreta, 
                                      origem, destino, valor_carga, produto, previsao_inicio, previsao_fim, numero_isca, status, data_criacao, empresa_id, usuario_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ''', (cd_prog, cd_viagem, cpf_motorista, nome_motorista, placa_cavalo, placa_carreta, 
                   f"{origem_nome} ({cd_cidade_origem})", f"{destino_nome} ({cd_cidade_destino})", 
                   valor_carga, produto, previsao_inicio, previsao_fim, numero_isca, 'Ativa (Simulada)', agora, empresa_id, usuario_id))
@@ -1386,7 +1386,7 @@ def criar_ae_express(dados, empresa_id, usuario_id, modo_simulacao=False):
             cursor.execute('''
                 INSERT INTO viagens (cd_programacao, cd_viagem, cpf_motorista, nome_motorista, placa_cavalo, placa_carreta, 
                                      origem, destino, valor_carga, produto, previsao_inicio, previsao_fim, numero_isca, status, data_criacao, empresa_id, usuario_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ''', (cd_prog, cd_viagem, cpf_motorista, nome_motorista, placa_cavalo, placa_carreta, 
                   f"{origem_nome} ({cd_cidade_origem})", f"{destino_nome} ({cd_cidade_destino})", 
                   valor_carga, produto, previsao_inicio, previsao_fim, numero_isca, 'Ativa', agora, empresa_id, usuario_id))
@@ -1404,11 +1404,11 @@ def listar_viagens(empresa_id, busca=""):
     """
     conn = get_connection()
     cursor = conn.cursor()
-    query = "SELECT * FROM viagens WHERE empresa_id = ?"
+    query = "SELECT * FROM viagens WHERE empresa_id = %s"
     params = [empresa_id]
     
     if busca:
-        query += " AND (cpf_motorista LIKE ? OR nome_motorista LIKE ? OR placa_cavalo LIKE ? OR placa_carreta LIKE ? OR cd_viagem LIKE ?)"
+        query += " AND (cpf_motorista LIKE %s OR nome_motorista LIKE %s OR placa_cavalo LIKE %s OR placa_carreta LIKE %s OR cd_viagem LIKE %s)"
         params.extend([f"%{busca}%", f"%{busca}%", f"%{busca}%", f"%{busca}%", f"%{busca}%"])
         
     query += " ORDER BY id DESC"
@@ -1426,7 +1426,7 @@ def cancelar_viagem_ae(viagem_id, cd_programacao, empresa_id):
     # 1. Verificar se a viagem é simulada
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT status FROM viagens WHERE id = ? AND empresa_id = ?", (viagem_id, empresa_id))
+    cursor.execute("SELECT status FROM viagens WHERE id = %s AND empresa_id = %s", (viagem_id, empresa_id))
     res = cursor.fetchone()
     conn.close()
     
@@ -1439,7 +1439,7 @@ def cancelar_viagem_ae(viagem_id, cd_programacao, empresa_id):
         # Apenas atualiza local
         conn = get_connection()
         cursor = conn.cursor()
-        cursor.execute("UPDATE viagens SET status = 'Cancelada (Simulada)' WHERE id = ?", (viagem_id,))
+        cursor.execute("UPDATE viagens SET status = 'Cancelada (Simulada)' WHERE id = %s", (viagem_id,))
         conn.commit()
         conn.close()
         return True, "Viagem simulada cancelada localmente com sucesso."
@@ -1454,7 +1454,7 @@ def cancelar_viagem_ae(viagem_id, cd_programacao, empresa_id):
             
         conn = get_connection()
         cursor = conn.cursor()
-        cursor.execute("UPDATE viagens SET status = 'Cancelada' WHERE id = ?", (viagem_id,))
+        cursor.execute("UPDATE viagens SET status = 'Cancelada' WHERE id = %s", (viagem_id,))
         conn.commit()
         conn.close()
         return True, "Viagem cancelada com sucesso na Opentech e atualizada no histórico."
@@ -1466,7 +1466,7 @@ def baixar_viagem_ae(viagem_id, cd_programacao, empresa_id):
     """
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT status FROM viagens WHERE id = ? AND empresa_id = ?", (viagem_id, empresa_id))
+    cursor.execute("SELECT status FROM viagens WHERE id = %s AND empresa_id = %s", (viagem_id, empresa_id))
     res = cursor.fetchone()
     conn.close()
     
@@ -1478,7 +1478,7 @@ def baixar_viagem_ae(viagem_id, cd_programacao, empresa_id):
     if "Simulada" in status_atual:
         conn = get_connection()
         cursor = conn.cursor()
-        cursor.execute("UPDATE viagens SET status = 'Baixada (Simulada)' WHERE id = ?", (viagem_id,))
+        cursor.execute("UPDATE viagens SET status = 'Baixada (Simulada)' WHERE id = %s", (viagem_id,))
         conn.commit()
         conn.close()
         return True, "Viagem simulada concluída localmente."
@@ -1490,7 +1490,7 @@ def baixar_viagem_ae(viagem_id, cd_programacao, empresa_id):
             
         conn = get_connection()
         cursor = conn.cursor()
-        cursor.execute("UPDATE viagens SET status = 'Baixada' WHERE id = ?", (viagem_id,))
+        cursor.execute("UPDATE viagens SET status = 'Baixada' WHERE id = %s", (viagem_id,))
         conn.commit()
         conn.close()
         return True, "Viagem finalizada (baixa) com sucesso na Opentech!"
