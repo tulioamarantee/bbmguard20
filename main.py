@@ -147,39 +147,40 @@ def render_config(user):
             with tab_criar:
                 with st.form("criar_usuario_form"):
                     st.subheader("Criar novo usuário")
-                nome = st.text_input("Nome completo")
-                cpf_raw = st.text_input("CPF (apenas números)", max_chars=11, placeholder="000.000.000-00")
-                cpf = f"{cpf_raw[:3]}.{cpf_raw[3:6]}.{cpf_raw[6:9]}-{cpf_raw[9:]}" if len(cpf_raw) == 11 else cpf_raw
-                data_nasc = st.date_input(
-                    "Data de Nascimento",
-                    min_value=datetime(1950, 1, 1),
-                    max_value=datetime(2026, 12, 31),
-                    value=datetime(2000, 1, 1)
-                )
-                email = st.text_input("E‑mail")
-                login = st.text_input("Login (geralmente e‑mail)")
-                senha = st.text_input("Senha", type="password")
-                role_sel = st.selectbox("Nível de acesso", ["Portaria", "Supervisor", "Admin"])
-                submit = st.form_submit_button("Criar usuário")
-                if submit:
-                    if not all([nome, cpf, email, login, senha]):
-                        st.error("Preencha todos os campos.")
-                    else:
-                        sucesso, msg = services.cadastrar_usuario(
-                            nome=nome,
-                            login=login,
-                            senha=senha,
-                            cpf=cpf,
-                            data_nascimento=data_nasc.isoformat(),
-                            email=email,
-                            empresa_id=user['empresa_id'],
-                            role=role_sel.lower()
-                        )
-                        if sucesso:
-                            st.success(msg)
-                            st.rerun()
+                    nome = st.text_input("Nome completo")
+                    cpf_raw = st.text_input("CPF (apenas números)", max_chars=11, placeholder="000.000.000-00")
+                    cpf = f"{cpf_raw[:3]}.{cpf_raw[3:6]}.{cpf_raw[6:9]}-{cpf_raw[9:]}" if len(cpf_raw) == 11 else cpf_raw
+                    data_nasc = st.date_input(
+                        "Data de Nascimento",
+                        min_value=datetime(1950, 1, 1),
+                        max_value=datetime(2026, 12, 31),
+                        value=datetime(2000, 1, 1)
+                    )
+                    email = st.text_input("E‑mail")
+                    login = st.text_input("Login (geralmente e‑mail)")
+                    senha = st.text_input("Senha", type="password")
+                    role_sel = st.selectbox("Nível de acesso", ["Portaria", "Supervisor", "Admin"])
+                    submit = st.form_submit_button("Criar usuário")
+                    
+                    if submit:
+                        if not all([nome, cpf, email, login, senha]):
+                            st.error("Preencha todos os campos.")
                         else:
-                            st.error(msg)
+                            sucesso, msg = services.cadastrar_usuario(
+                                nome=nome,
+                                login=login,
+                                senha=senha,
+                                cpf=cpf,
+                                data_nascimento=data_nasc.isoformat(),
+                                email=email,
+                                empresa_id=user['empresa_id'],
+                                role=role_sel.lower()
+                            )
+                            if sucesso:
+                                st.success(msg)
+                                st.rerun()
+                            else:
+                                st.error(msg)
 
         # ── ABA 2: Gerenciar usuários existentes (Apenas Admin) ──
         if tab_gerenciar:
