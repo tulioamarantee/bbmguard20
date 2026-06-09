@@ -103,40 +103,37 @@ def render_header(user=None):
     Cabeçalho Premium do BBM Risk.
     """
     st.markdown("""
-        <div style="background: linear-gradient(135deg, #0d1b2a, #1b263b); 
+        <div style="background: var(--secondary-background-color); 
                     padding: 22px 28px; 
                     border-radius: 14px; 
                     margin-bottom: 22px; 
-                    border: 1px solid rgba(67, 100, 247, 0.15);
-                    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2); 
+                    border: 1px solid rgba(128, 128, 128, 0.2);
+                    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1); 
                     display: flex; 
                     align-items: center; 
                     gap: 20px;">
             <div style="font-size: 2.8rem; 
-                        background: rgba(255, 255, 255, 0.05); 
+                        background: rgba(128, 128, 128, 0.1); 
                         padding: 10px 15px; 
                         border-radius: 10px;
-                        border: 1px solid rgba(255,255,255,0.1);
-                        box-shadow: inset 0 0 10px rgba(255,255,255,0.05);
-                        filter: drop-shadow(0 0 8px rgba(67,100,247,0.3));">
+                        border: 1px solid rgba(128,128,128,0.2);">
                 ⚡
             </div>
             <div>
-                <h1 style="color: #FFFFFF !important; 
+                <h1 style="color: var(--text-color) !important; 
                            margin: 0; 
                            font-family: 'Orbitron', sans-serif; 
                            font-weight: 900; 
                            letter-spacing: 1.5px; 
-                           font-size: 2.1rem; 
-                           text-shadow: 0 2px 8px rgba(0,0,0,0.5);">
+                           font-size: 2.1rem;">
                     BBM RISK
                 </h1>
-                <p style="color: #a3b18a !important; 
+                <p style="color: var(--text-color) !important; 
                           margin: 4px 0 0 0; 
                           font-size: 0.95rem; 
                           font-weight: 500; 
                           letter-spacing: 0.3px;
-                          opacity: 0.9;">
+                          opacity: 0.7;">
                     Controle de Acessos & Gerenciador de Autorizações Opentech
                 </p>
             </div>
