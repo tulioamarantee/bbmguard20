@@ -47,15 +47,13 @@ def find_text(xml_string, tag, parent_tag=None):
         return None
     try:
         if parent_tag:
-            # Encontra o bloco do nó pai tolerando atributos na tag (ex: <ConsultaVeiculoResponse diffgr:id="ConsultaVeiculoResponse1">)
-            parent_match = re.search(r"<%s\b[^>]*>(.*?)</%s>" % (parent_tag, parent_tag), xml_string, re.DOTALL)
+            parent_match = re.search(r"<%s\b[^>]*>(.*?)</%s>" % (parent_tag, parent_tag), xml_string, re.DOTALL | re.IGNORECASE)
             if parent_match:
                 block = parent_match.group(1)
-                match = re.search(f"<{tag}>(.*?)</{tag}>", block, re.DOTALL)
+                match = re.search(r"<%s\b[^>]*>(.*?)</%s>" % (tag, tag), block, re.DOTALL | re.IGNORECASE)
                 return match.group(1) if match else None
             return None
-        # Busca normal
-        match = re.search(f"<{tag}>(.*?)</{tag}>", xml_string, re.DOTALL)
+        match = re.search(r"<%s\b[^>]*>(.*?)</%s>" % (tag, tag), xml_string, re.DOTALL | re.IGNORECASE)
         return match.group(1) if match else None
     except Exception:
         return None
@@ -849,7 +847,7 @@ def gerar_ae_v9(dados):
         erros_str = "\n".join(erros_list) if erros_list else ""
         return {"error": f"{desc}\n{erros_str}"}
 
-    cd_viagem = find_text(resp, "CDVIAG")
+    cd_viagem = find_text(resp, "cdviagem") or find_text(resp, "cdviag")
     if cd_viagem:
         return {"cd_viagem": cd_viagem}
     return {"error": "AE gerada, mas CDVIAG não retornado."}
