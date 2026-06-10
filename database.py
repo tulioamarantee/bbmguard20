@@ -98,11 +98,13 @@ class ConnWrapper:
         else:
             self.conn.close()
 
+import streamlit as st
+
+@st.cache_resource
 def init_db():
     try:
         conn = get_connection()
     except Exception as e:
-        import streamlit as st
         st.error(f"ERRO DE CONEXÃO COM O BANCO DE DADOS: {str(e)}")
         st.stop()
     # Usando o wrapper nativo só para a criação
