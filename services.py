@@ -1528,7 +1528,7 @@ def buscar_rota_especifica(cd_cid_origem, cd_cid_destino):
         outras = []
         for r in todas:
             if r.get("cd_cidade_origem") == cd_cid_origem and r.get("cd_cidade_destino") == cd_cid_destino:
-                r["ds_rota"] = f"⭐ [RECOMENDADA] {r['ds_rota']}"
+                r["ds_rota"] = f"⭐ {r['ds_rota']}"
                 exatas.append(r)
             else:
                 outras.append(r)
