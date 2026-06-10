@@ -829,14 +829,11 @@ def render_ae_express(user):
                         else:
                             st.error(msg)
 
-    with col_hist:
-        st.subheader("📋 Viagens & Monitoramentos Ativos")
-
         # ── Download PDF da última AE criada ──
         if "ae_ultimo_cd_viagem" in st.session_state and st.session_state.ae_ultimo_cd_viagem:
             cd_v = st.session_state.ae_ultimo_cd_viagem
             st.markdown(f"""<div style='background:linear-gradient(135deg,#1B4332,#2D6A4F);
-                padding:16px 20px; border-radius:8px; border-left:6px solid #4CAF50; margin-bottom:16px;'>
+                padding:16px 20px; border-radius:8px; border-left:6px solid #4CAF50; margin-top:16px; margin-bottom:16px;'>
                 <span style='color:#D8F3DC;font-size:13px;font-weight:bold;letter-spacing:1px;'>✅ AE CRIADA COM SUCESSO</span><br>
                 <span style='color:white;font-weight:bold;font-size:18px;'>AE #{cd_v} — Pronta para download</span>
             </div>""", unsafe_allow_html=True)
@@ -863,6 +860,9 @@ def render_ae_express(user):
                     del st.session_state.ae_ultimo_cd_viagem
                     del st.session_state.ae_ultimo_dados
                     st.rerun()
+
+    with col_hist:
+        st.subheader("📋 Viagens & Monitoramentos Ativos")
 
         busca_ae = st.text_input("🔎 Filtrar por CPF, Placa, Isca ou Cód. Viagem")
 
