@@ -13,6 +13,8 @@ def post_soap(action, body):
         "Content-Type": "text/xml; charset=utf-8",
         "SOAPAction": f'"http://tempuri.org/{action}"'
     }
+    import os
+    os.makedirs("scratch", exist_ok=True)
     with open(f"scratch/soap_body_debug_{action}.xml", "w", encoding="utf-8") as f:
         f.write(body)
     try:
