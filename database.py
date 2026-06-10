@@ -16,10 +16,29 @@ IS_POSTGRES = bool(SUPABASE_URL)
 if not IS_POSTGRES:
     import sqlite3
 
+def get_db_pool():
+    if not IS_POSTGRES: return None
+    try:
+        import streamlit as st
+        # Utiliza cache_resource para manter a pool viva entre as interações do usuário
+        @st.cache_resource
+        def _create_pool():
+            from psycopg2.pool import ThreadedConnectionPool
+            return ThreadedConnectionPool(1, 20, SUPABASE_URL, cursor_factory=psycopg2.extras.DictCursor)
+        return _create_pool()
+    except Exception:
+        # Fallback se Streamlit não estiver em contexto ativo
+        global _fallback_pool
+        if '_fallback_pool' not in globals():
+            from psycopg2.pool import ThreadedConnectionPool
+            _fallback_pool = ThreadedConnectionPool(1, 20, SUPABASE_URL, cursor_factory=psycopg2.extras.DictCursor)
+        return _fallback_pool
+
 def get_connection():
     if IS_POSTGRES:
-        conn = psycopg2.connect(SUPABASE_URL, cursor_factory=psycopg2.extras.DictCursor)
-        return ConnWrapper(conn)
+        pool = get_db_pool()
+        conn = pool.getconn()
+        return ConnWrapper(conn, pool=pool)
     else:
         conn = sqlite3.connect("guard_gr.db")
         conn.row_factory = sqlite3.Row
@@ -63,8 +82,9 @@ class DBWrapper:
 
 class ConnWrapper:
     """Wrapper para unificar connection do Postgres e SQLite"""
-    def __init__(self, conn):
+    def __init__(self, conn, pool=None):
         self.conn = conn
+        self.pool = pool
         
     def cursor(self):
         return DBWrapper(self.conn.cursor())
@@ -73,7 +93,10 @@ class ConnWrapper:
         self.conn.commit()
         
     def close(self):
-        self.conn.close()
+        if self.pool:
+            self.pool.putconn(self.conn)
+        else:
+            self.conn.close()
 
 def init_db():
     try:

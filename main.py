@@ -518,12 +518,16 @@ def render_ae_express(user):
         if chave not in st.session_state:
             st.session_state[chave] = valor_padrao
 
-    try:
-        import json
-        with open("cidades_opentech.json", "r", encoding="utf-8") as f:
-            CIDADES_CONHECIDAS = json.load(f)
-    except:
-        CIDADES_CONHECIDAS = {}
+    @st.cache_data
+    def load_cidades():
+        try:
+            import json
+            with open("cidades_opentech.json", "r", encoding="utf-8") as f:
+                return json.load(f)
+        except:
+            return {}
+            
+    CIDADES_CONHECIDAS = load_cidades()
 
     ESTADOS_BR = [
         "AC","AL","AM","AP","BA","CE","DF","ES","GO","MA","MG","MS","MT",
