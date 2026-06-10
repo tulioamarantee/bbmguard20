@@ -449,7 +449,7 @@ def gerar_ae_programacao(dados):
     if numero_isca:
         tag_iscas = f"""<tem:iscas>
             <tem:sgrIsca>
-               <tem:cdemprastrea>1</tem:cdemprastrea>
+               <tem:cdemprastrea>1955576</tem:cdemprastrea>
                <tem:nrisca>{numero_isca}</tem:nrisca>
                <tem:dssiteisca></tem:dssiteisca>
                <tem:dsususiteisca></tem:dsususiteisca>
@@ -706,7 +706,7 @@ def gerar_ae_v9(dados):
     if numero_isca:
         tag_iscas = f"""<tem:iscas>
             <tem:sgrIsca>
-               <tem:cdemprastrea>1</tem:cdemprastrea>
+               <tem:cdemprastrea>1955576</tem:cdemprastrea>
                <tem:nrisca>{numero_isca}</tem:nrisca>
                <tem:dssiteisca></tem:dssiteisca>
                <tem:dsususiteisca></tem:dsususiteisca>
