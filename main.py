@@ -534,7 +534,7 @@ def render_ae_express(user):
         "PA","PB","PE","PI","PR","RJ","RN","RO","RR","RS","SC","SE","SP","TO"
     ]
 
-    col_form, col_hist = st.columns([1.2, 1.8])
+    col_form, col_hist = st.columns([1.8, 1.2])
 
     with col_form:
         st.subheader("📝 Novo Monitoramento")
@@ -835,10 +835,10 @@ def render_ae_express(user):
         # ── Download PDF da última AE criada ──
         if "ae_ultimo_cd_viagem" in st.session_state and st.session_state.ae_ultimo_cd_viagem:
             cd_v = st.session_state.ae_ultimo_cd_viagem
-            st.markdown(f"""<div style='background:linear-gradient(135deg,#0D1B2A,#1A3A5C);
-                padding:12px 16px; border-radius:8px; border-left:4px solid #2D6A9F; margin-bottom:12px;'>
-                <span style='color:#B0C4D8;font-size:12px;'>✅ AE criada com sucesso</span><br>
-                <span style='color:white;font-weight:bold;font-size:15px;'>AE #{cd_v} — Pronta para download</span>
+            st.markdown(f"""<div style='background:linear-gradient(135deg,#1B4332,#2D6A4F);
+                padding:16px 20px; border-radius:8px; border-left:6px solid #4CAF50; margin-bottom:16px;'>
+                <span style='color:#D8F3DC;font-size:13px;font-weight:bold;letter-spacing:1px;'>✅ AE CRIADA COM SUCESSO</span><br>
+                <span style='color:white;font-weight:bold;font-size:18px;'>AE #{cd_v} — Pronta para download</span>
             </div>""", unsafe_allow_html=True)
             col_dl, col_cl = st.columns([3, 1])
             with col_dl:
