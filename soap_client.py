@@ -18,7 +18,7 @@ def post_soap(action, body):
     with open(f"scratch/soap_body_debug_{action}.xml", "w", encoding="utf-8") as f:
         f.write(body)
     try:
-        r = requests.post(WS_URL, data=body.encode("utf-8"), headers=headers, timeout=20)
+        r = requests.post(WS_URL, data=body.encode("utf-8"), headers=headers, timeout=60)
         with open("scratch/soap_debug.log", "w", encoding="utf-8") as f:
             f.write(r.text)
         r.raise_for_status()
