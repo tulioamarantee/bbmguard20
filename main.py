@@ -732,10 +732,10 @@ def render_ae_express(user):
             cnpj_destino = ""
 
             valor_carga = st.number_input(
-                "Valor da Carga (R$)", min_value=100.0, value=50000.0, step=5000.0, format="%.2f"
+                "Valor da Carga (R$)", min_value=100.0, value=50000.0, step=5000.0, format="%.2f", key="ae_valor_carga"
             )
             st.caption("ℹ️ **Produto fixado:** E-commerce")
-            numero_isca = st.text_input("Número da Isca (Opcional)", placeholder="Ex: ISCA998877")
+            numero_isca = st.text_input("Número da Isca (Opcional)", placeholder="Ex: ISCA998877", key="ae_numero_isca")
 
             col_d_ini, col_h_ini = st.columns(2)
             with col_d_ini:
@@ -898,6 +898,46 @@ def render_ae_express(user):
 
                         # Botão de PDF sempre disponível
                         if st.button("📄 PDF da AE", key=f"pdf_{v['id']}", use_container_width=True):
+                            pass  # placeholder to match line
+                        
+                        if st.button("🔄 Relançar AE", key=f"relancar_{v['id']}", use_container_width=True):
+                            import re as _re
+                            st.session_state.ae_cpf = ''.join(filter(str.isdigit, v['cpf_motorista']))
+                            st.session_state.ae_placa = v['placa_cavalo']
+                            st.session_state.ae_placa_carreta = v['placa_carreta'] or ""
+                            st.session_state.ae_mot_nome = v['nome_motorista']
+                            st.session_state.ae_buscou_mot = True
+                            st.session_state.ae_buscou_veic = True
+                            
+                            def parse_cid_uf(s):
+                                m = _re.match(r"^(.*?)/(..)\s*\((\d+)\)$", s)
+                                if m: return m.group(1), m.group(2)
+                                return None, None
+                                
+                            cid_o, uf_o = parse_cid_uf(v['origem'])
+                            if uf_o in ESTADOS_BR:
+                                st.session_state.ae_orig_uf_sel = uf_o
+                                if cid_o in CIDADES_CONHECIDAS.get(uf_o, {}):
+                                    st.session_state.ae_orig_cid_sel = cid_o
+                                else:
+                                    st.session_state.ae_orig_cid_sel = "Outra cidade..."
+                                    st.session_state.ae_orig_txt = cid_o
+                                    
+                            cid_d, uf_d = parse_cid_uf(v['destino'])
+                            if uf_d in ESTADOS_BR:
+                                st.session_state.ae_dest_uf_sel = uf_d
+                                if cid_d in CIDADES_CONHECIDAS.get(uf_d, {}):
+                                    st.session_state.ae_dest_cid_sel = cid_d
+                                else:
+                                    st.session_state.ae_dest_cid_sel = "Outra cidade..."
+                                    st.session_state.ae_dest_txt = cid_d
+                                    
+                            if v.get('valor_carga'):
+                                st.session_state.ae_valor_carga = float(v['valor_carga'])
+                            if v.get('numero_isca'):
+                                st.session_state.ae_numero_isca = v['numero_isca']
+                                
+                            st.rerun()
                             with st.spinner("Gerando PDF..."):
                                 dados_loc = {
                                     "cd_programacao": v.get("cd_programacao"),
