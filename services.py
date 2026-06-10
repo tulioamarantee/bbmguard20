@@ -1,3 +1,4 @@
+import streamlit as st
 import logging
 import os
 import sqlite3
@@ -118,6 +119,7 @@ def consultar_opentech(cpf, token_empresa, usuario_nome="Sistema"):
         return {"nome": "Erro Fatal", "status": f"Erro de Conexão: {str(e)}", "data_consulta": datetime.now().strftime("%d/%m/%Y %H:%M"), "validade": "N/I"}
 
 # --- GESTÃO DE MOTORISTAS ---
+@st.cache_data(ttl=60, show_spinner=False)
 def listar_motoristas(empresa_id, busca=""):
     conn = get_connection()
     cursor = conn.cursor()
@@ -179,6 +181,7 @@ def verificar_validade_existente(cpf, empresa_id):
     return False, False, None, None, None, None
 
 def cadastrar_motorista(dados, empresa_id):
+    listar_motoristas.clear()
     conn = get_connection()
     cursor = conn.cursor()
     try:
@@ -980,6 +983,7 @@ def consultar_opentech_veiculo(placa, token_empresa, usuario_nome="Sistema"):
         sil_logger.exception(f"FATAL | Erro ao consultar Opentech para Placa {placa_limpa}")
         return {"placa": placa_limpa, "status": f"Erro de Conexão: {str(e)}", "data_consulta": datetime.now().strftime("%d/%m/%Y %H:%M"), "validade": "N/I"}
 
+@st.cache_data(ttl=60, show_spinner=False)
 def listar_veiculos(empresa_id, busca=""):
     conn = get_connection()
     cursor = conn.cursor()
@@ -1041,6 +1045,7 @@ def verificar_validade_existente_veiculo(placa, empresa_id):
     return False, None, None, None
 
 def cadastrar_veiculo(dados, empresa_id):
+    listar_veiculos.clear()
     conn = get_connection()
     cursor = conn.cursor()
     try:
@@ -1389,6 +1394,7 @@ def criar_ae_express(dados, empresa_id, usuario_id, modo_simulacao=False):
         cursor = conn.cursor()
         agora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         try:
+            listar_viagens.clear()
             cursor.execute('''
                 INSERT INTO viagens (cd_programacao, cd_viagem, cpf_motorista, nome_motorista, placa_cavalo, placa_carreta, 
                                      origem, destino, valor_carga, produto, previsao_inicio, previsao_fim, numero_isca, status, data_criacao, empresa_id, usuario_id)
@@ -1404,6 +1410,7 @@ def criar_ae_express(dados, empresa_id, usuario_id, modo_simulacao=False):
             return True, f"AE criada na Opentech (#{cd_viagem}) mas falhou ao gravar no histórico local: {e}"
 
 
+@st.cache_data(ttl=60, show_spinner=False)
 def listar_viagens(empresa_id, busca=""):
     """
     Lista as viagens/AEs cadastradas no histórico local.
