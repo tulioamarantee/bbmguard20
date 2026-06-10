@@ -1372,6 +1372,7 @@ def criar_ae_express(dados, empresa_id, usuario_id, modo_simulacao=False):
             "cdembarcador": config.CD_CLIENTE,
             "cdprod": 22810, # 22810 = E COMMERCE para o cliente Dialogo
             "cdrota": dados.get("cd_rota", -1),
+            "nrIsca": numero_isca,
             "nrDoc": numero_isca if numero_isca else f"SGR-{cpf_motorista[-4:]}-{placa_cavalo[-4:]}"
         }
         

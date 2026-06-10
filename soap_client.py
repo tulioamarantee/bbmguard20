@@ -700,6 +700,22 @@ def gerar_ae_v9(dados):
     cdpaisorigemmot2 = -1 if not nrdocmotorista2 else 1
     rastreadorcavalo = dados.get("rastreadorcavalo", "")
     rastreadorcarreta1 = dados.get("rastreadorcarreta1", "")
+    
+    numero_isca = dados.get("nrIsca", "").strip()
+    tag_iscas = ""
+    if numero_isca:
+        tag_iscas = f"""<tem:iscas>
+            <tem:sgrIsca>
+               <tem:cdemprastrea>1</tem:cdemprastrea>
+               <tem:nrisca>{numero_isca}</tem:nrisca>
+               <tem:dssiteisca></tem:dssiteisca>
+               <tem:dsususiteisca></tem:dsususiteisca>
+               <tem:dssenhasiteisca></tem:dssenhasiteisca>
+               <tem:dsnumerovolumeisca></tem:dsnumerovolumeisca>
+            </tem:sgrIsca>
+         </tem:iscas>"""
+    else:
+        tag_iscas = "<tem:iscas/>"
 
     body = f"""<?xml version="1.0" encoding="utf-8"?>
 <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
@@ -812,6 +828,7 @@ def gerar_ae_v9(dados):
       <tem:dsnomerespviag></tem:dsnomerespviag>
       <tem:dsfone1respviag></tem:dsfone1respviag>
       <tem:dsfone2respviag></tem:dsfone2respviag>
+      {tag_iscas}
       <tem:rotas>
         <tem:Rota>
            <tem:cdRotaModelo>{dados.get('cdrota', -1)}</tem:cdRotaModelo>
