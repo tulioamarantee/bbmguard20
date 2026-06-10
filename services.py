@@ -133,9 +133,14 @@ def listar_motoristas(empresa_id, busca=""):
         query += " AND (m.nome LIKE %s OR m.cpf LIKE %s)"
         params.extend([f"%{busca}%", f"%{busca}%"])
         
-    query += " GROUP BY m.id ORDER BY COALESCE(ultima_consulta, '') DESC, m.id DESC"
+    query += " GROUP BY m.id ORDER BY COALESCE(MAX(r.data_hora), '') DESC, m.id DESC"
     
-    cursor.execute(query, params)
+    try:
+        cursor.execute(query, params)
+    except Exception as e:
+        import streamlit as st
+        st.error(f"Erro real do Postgres: {str(e)}\n\nQuery: {query}")
+        st.stop()
     motoristas = cursor.fetchall()
     conn.close()
     return motoristas

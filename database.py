@@ -227,6 +227,39 @@ def init_db():
         seed_data(conn)
     elif count is not None and hasattr(count, '__getitem__') and count[0] == 0:
         seed_data(conn)
+    # Auto-migration for missing columns (Streamlit Cloud Postgres update)
+    def add_col_if_needed(table, col, dtype):
+        try:
+            cursor.execute(f"ALTER TABLE {table} ADD COLUMN {col} {dtype}")
+            conn.commit()
+        except Exception:
+            try:
+                conn.conn.rollback()
+            except Exception:
+                pass
+
+    add_col_if_needed('empresas', 'compartilhar_historico', 'INTEGER DEFAULT 0')
+    add_col_if_needed('empresas', 'limite_advertencias', 'INTEGER DEFAULT 3')
+    add_col_if_needed('empresas', 'intervalo_dias_regra', 'INTEGER DEFAULT 90')
+    add_col_if_needed('empresas', 'limite_suspensoes_exclusao', 'INTEGER DEFAULT 3')
+    add_col_if_needed('empresas', 'dias_susp_1', 'INTEGER DEFAULT 7')
+    add_col_if_needed('empresas', 'dias_susp_2', 'INTEGER DEFAULT 15')
+    
+    add_col_if_needed('usuarios', 'cpf', 'TEXT')
+    add_col_if_needed('usuarios', 'data_nascimento', 'TEXT')
+    add_col_if_needed('usuarios', 'email', 'TEXT')
+    
+    add_col_if_needed('motoristas', 'status_interno', "TEXT DEFAULT 'Ativo'")
+    add_col_if_needed('motoristas', 'status_sil', "TEXT DEFAULT 'Não consultado'")
+    add_col_if_needed('motoristas', 'data_consulta_sil', 'TEXT')
+    add_col_if_needed('motoristas', 'data_fim_suspensao', 'TEXT')
+    add_col_if_needed('motoristas', 'data_expiracao', 'TEXT')
+    add_col_if_needed('motoristas', 'empresa_id', 'INTEGER')
+    
+    add_col_if_needed('registros_acesso', 'empresa_id', 'INTEGER')
+    
+    add_col_if_needed('veiculos', 'rastreadores', 'TEXT')
+    add_col_if_needed('veiculos', 'segundo_rastreador', 'TEXT')
     
     conn.close()
 
