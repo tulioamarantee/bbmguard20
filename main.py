@@ -635,9 +635,51 @@ def render_ae_express(user):
         elif st.session_state.ae_buscou_veic and not st.session_state.ae_veic_tipo:
             st.error("❌ Veículo não encontrado no banco local nem no SIL.")
 
-        placa_carreta = st.text_input(
-            "Placa da Carreta (Opcional)", max_chars=7, placeholder="XYZ9A99", key="ae_placa_carreta"
-        )
+        # ── Placa da Carreta ──
+        st.markdown("**🚛 Veículo (Carreta - Opcional)**")
+        col_placa_c, col_btn_placa_c = st.columns([3, 1])
+        with col_placa_c:
+            placa_carreta = st.text_input(
+                "Placa da Carreta (7 dígitos)", max_chars=7, placeholder="XYZ9A99",
+                key="ae_placa_carreta", label_visibility="collapsed"
+            )
+        with col_btn_placa_c:
+            st.write("")
+            buscar_carreta = st.button("🔍 Buscar", key="btn_buscar_carreta", use_container_width=True)
+
+        if buscar_carreta:
+            st.session_state.ae_buscou_carreta = True
+            placa_carreta_digits = (placa_carreta or "").replace("-", "").strip().upper()
+            if len(placa_carreta_digits) == 7:
+                veic = services.buscar_veiculo_por_placa(placa_carreta, user['empresa_id'])
+                if veic:
+                    st.session_state.ae_carreta_tipo = veic['tipo_veiculo']
+                else:
+                    with st.spinner("Buscando carreta no SIL (Opentech)..."):
+                        res_sil = services.consultar_opentech_veiculo(placa_carreta_digits, "TOKEN", usuario_nome=user['nome'])
+                        if res_sil and res_sil.get("status") and "Erro" not in res_sil.get("status"):
+                            st.session_state.ae_carreta_tipo = res_sil.get("tipo_veiculo", "N/I")
+                            dados_salvar = {
+                                "placa": placa_carreta_digits,
+                                "tipo_veiculo": res_sil.get("tipo_veiculo", "N/I"),
+                                "status": res_sil.get("status", "Sem Informação"),
+                                "validade": res_sil.get("validade", "N/I"),
+                                "ultima_posicao": res_sil.get("ultima_posicao", "N/I"),
+                                "checklist": res_sil.get("checklist", "N/I"),
+                                "data_consulta": res_sil.get("data_consulta"),
+                                "rastreadores": res_sil.get("rastreadores", "N/I"),
+                                "segundo_rastreador": res_sil.get("segundo_rastreador", "Não possui")
+                            }
+                            services.cadastrar_veiculo(dados_salvar, user['empresa_id'])
+                        else:
+                            st.session_state.ae_carreta_tipo = None
+            else:
+                st.warning("⚠️ Digite a placa completa (7 caracteres) antes de buscar.")
+
+        if st.session_state.get("ae_carreta_tipo"):
+            st.success(f"✅ **{(placa_carreta or '').upper()}** — {st.session_state.ae_carreta_tipo}")
+        elif st.session_state.get("ae_buscou_carreta") and not st.session_state.get("ae_carreta_tipo"):
+            st.error("❌ Carreta não encontrada no banco local nem no SIL.")
 
         st.divider()
 
@@ -821,8 +863,10 @@ def render_ae_express(user):
                                 }
                             st.session_state.ae_mot_nome = None
                             st.session_state.ae_veic_tipo = None
+                            st.session_state.ae_carreta_tipo = None
                             st.session_state.ae_buscou_mot = False
                             st.session_state.ae_buscou_veic = False
+                            st.session_state.ae_buscou_carreta = False
                             if "ae_rotas_opcoes" in st.session_state:
                                 del st.session_state.ae_rotas_opcoes
                             st.rerun()

@@ -741,9 +741,9 @@ def gerar_ae_v9(dados):
       <tem:dtprevini>{dados.get('dtprevini', '')}</tem:dtprevini>
       <tem:dtprevfim>{dados.get('dtprevfim', '')}</tem:dtprevfim>
       <tem:rastreadorcavalo>{rastreadorcavalo}</tem:rastreadorcavalo>
-      <tem:cdemprastrcavalo>-1</tem:cdemprastrcavalo>
+      <tem:cdemprastrcavalo>1955576</tem:cdemprastrcavalo>
       <tem:rastreadorcarreta1>{rastreadorcarreta1}</tem:rastreadorcarreta1>
-      <tem:cdemprastrcarreta1>-1</tem:cdemprastrcarreta1>
+      <tem:cdemprastrcarreta1>{1955576 if nrplacacarreta1 else -1}</tem:cdemprastrcarreta1>
       <tem:cdcidorigem>{dados.get('cdcidorigem', 9999)}</tem:cdcidorigem>
       <tem:cdciddestino>{dados.get('cdciddestino', 9999)}</tem:cdciddestino>
       <tem:cdrota>-1</tem:cdrota>
