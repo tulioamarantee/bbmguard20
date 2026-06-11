@@ -235,6 +235,39 @@ def listar_usuarios(empresa_id):
     conn.close()
     return usuarios
 
+def get_produtividade_usuarios(empresa_id):
+    """
+    Retorna um DataFrame com a quantidade de consultas (SIL) e AEs criadas por cada usuário.
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+    query = """
+        SELECT 
+            u.nome AS "Usuário", 
+            u.login AS "Login",
+            COUNT(DISTINCT r.id) AS "Consultas SIL (Motorista/Veículo)",
+            COUNT(DISTINCT v.id) AS "AEs Criadas"
+        FROM usuarios u
+        LEFT JOIN registros_acesso r ON u.id = r.usuario_id AND r.empresa_id = u.empresa_id
+        LEFT JOIN viagens v ON u.id = v.usuario_id AND v.empresa_id = u.empresa_id
+        WHERE u.empresa_id = %s
+        GROUP BY u.id
+        ORDER BY "AEs Criadas" DESC, "Consultas SIL (Motorista/Veículo)" DESC
+    """
+    try:
+        cursor.execute(query, [empresa_id])
+        rows = cursor.fetchall()
+        import pandas as pd
+        if not rows:
+            return pd.DataFrame()
+        return pd.DataFrame([dict(r) for r in rows])
+    except Exception as e:
+        import streamlit as st
+        st.error(f"Erro ao buscar produtividade: {e}")
+        return None
+    finally:
+        conn.close()
+
 def atualizar_usuario(usuario_id, nome, email, role, nova_senha=None):
     """
     Atualiza os dados de um usuário existente.

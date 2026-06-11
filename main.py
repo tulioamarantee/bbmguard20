@@ -136,14 +136,16 @@ def render_config(user):
             st.success(st.session_state['success_msg'])
             del st.session_state['success_msg']
 
-        # ── Abas: Criar Usuário | Gerenciar Usuários ──
+        # ── Abas: Criar Usuário | Gerenciar Usuários | Produtividade ──
         if role == 'admin':
-            tabs = st.tabs(["➕ Novo Usuário", "👥 Gerenciar Usuários"])
+            tabs = st.tabs(["➕ Novo Usuário", "👥 Gerenciar Usuários", "📊 Produtividade"])
             tab_criar = tabs[0]
             tab_gerenciar = tabs[1]
+            tab_prod = tabs[2]
         else:
             tab_criar = None
             tab_gerenciar = None
+            tab_prod = None
             st.info("🔒 O gerenciamento e visualização de usuários é restrito ao nível Administrador.")
 
         # ── ABA 1: Criar novo usuário (Apenas Admin) ──
@@ -258,6 +260,27 @@ def render_config(user):
                                         st.error(msg)
                             else:
                                 st.caption("ℹ️ Você não pode excluir seu próprio usuário.")
+
+        # ── ABA 3: Produtividade (Apenas Admin) ──
+        if tab_prod:
+            with tab_prod:
+                st.subheader("📊 Relatório de Produtividade dos Usuários")
+                st.write("Acompanhe a quantidade de consultas e AEs emitidas por cada colaborador da sua empresa.")
+                
+                df_prod = services.get_produtividade_usuarios(user['empresa_id'])
+                if df_prod is not None and not df_prod.empty:
+                    st.dataframe(df_prod, use_container_width=True, hide_index=True)
+                    
+                    csv = df_prod.to_csv(index=False).encode('utf-8')
+                    st.download_button(
+                        label="📥 Baixar Relatório (CSV / Excel)",
+                        data=csv,
+                        file_name=f"Produtividade_Usuarios_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                        mime="text/csv",
+                        type="primary"
+                    )
+                else:
+                    st.info("Nenhum dado de produtividade encontrado ou ocorreu um erro na busca.")
 
 @st.dialog("Novo Cadastro via SIL Opentech")
 def render_modal_cadastro_sil(user):
