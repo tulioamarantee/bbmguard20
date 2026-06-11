@@ -535,9 +535,25 @@ def render_ae_express(user):
 
     def _callback_relancar(v):
         import re as _re
-        st.session_state.ae_cpf = ''.join(filter(str.isdigit, v['cpf_motorista']))
-        st.session_state.ae_placa = v['placa_cavalo']
-        st.session_state.ae_placa_carreta = v['placa_carreta'] or ""
+        cpf_digits = ''.join(filter(str.isdigit, v['cpf_motorista']))
+        if len(cpf_digits) == 11:
+            st.session_state.ae_cpf = f"{cpf_digits[:3]}.{cpf_digits[3:6]}.{cpf_digits[6:9]}-{cpf_digits[9:]}"
+        else:
+            st.session_state.ae_cpf = cpf_digits
+            
+        placa_limpa = v['placa_cavalo'].replace("-", "").strip().upper()
+        if len(placa_limpa) == 7:
+            st.session_state.ae_placa = f"{placa_limpa[:3]}-{placa_limpa[3:]}"
+        else:
+            st.session_state.ae_placa = placa_limpa
+            
+        placa_carreta = v['placa_carreta'] or ""
+        placa_c_limpa = placa_carreta.replace("-", "").strip().upper()
+        if len(placa_c_limpa) == 7:
+            st.session_state.ae_placa_carreta = f"{placa_c_limpa[:3]}-{placa_c_limpa[3:]}"
+        else:
+            st.session_state.ae_placa_carreta = placa_c_limpa
+            
         st.session_state.ae_mot_nome = v['nome_motorista']
         st.session_state.ae_buscou_mot = True
         st.session_state.ae_buscou_veic = True
@@ -582,6 +598,29 @@ def render_ae_express(user):
     ]:
         if chave not in st.session_state:
             st.session_state[chave] = valor_padrao
+    def _format_cpf():
+        val = st.session_state.get("ae_cpf", "")
+        limpo = ''.join(filter(str.isdigit, val))
+        if len(limpo) == 11:
+            st.session_state.ae_cpf = f"{limpo[:3]}.{limpo[3:6]}.{limpo[6:9]}-{limpo[9:]}"
+        else:
+            st.session_state.ae_cpf = limpo
+
+    def _format_placa():
+        val = st.session_state.get("ae_placa", "")
+        limpo = val.replace("-", "").strip().upper()
+        if len(limpo) == 7:
+            st.session_state.ae_placa = f"{limpo[:3]}-{limpo[3:]}"
+        else:
+            st.session_state.ae_placa = limpo
+
+    def _format_placa_carreta():
+        val = st.session_state.get("ae_placa_carreta", "")
+        limpo = val.replace("-", "").strip().upper()
+        if len(limpo) == 7:
+            st.session_state.ae_placa_carreta = f"{limpo[:3]}-{limpo[3:]}"
+        else:
+            st.session_state.ae_placa_carreta = limpo
 
     @st.cache_data
     def load_cidades():
@@ -609,8 +648,8 @@ def render_ae_express(user):
         col_cpf, col_btn_cpf = st.columns([3, 1])
         with col_cpf:
             cpf_input = st.text_input(
-                "CPF (apenas números)", max_chars=11, placeholder="00000000000",
-                key="ae_cpf", label_visibility="collapsed"
+                "CPF (apenas números)", max_chars=14, placeholder="000.000.000-00",
+                key="ae_cpf", on_change=_format_cpf, label_visibility="collapsed"
             )
         with col_btn_cpf:
             st.write("")
@@ -658,8 +697,8 @@ def render_ae_express(user):
         col_placa, col_btn_placa = st.columns([3, 1])
         with col_placa:
             placa_cavalo = st.text_input(
-                "Placa (7 dígitos)", max_chars=7, placeholder="ABC1D23",
-                key="ae_placa", label_visibility="collapsed"
+                "Placa (7 dígitos)", max_chars=8, placeholder="ABC-1D23",
+                key="ae_placa", on_change=_format_placa, label_visibility="collapsed"
             )
         with col_btn_placa:
             st.write("")
@@ -705,8 +744,8 @@ def render_ae_express(user):
         col_placa_c, col_btn_placa_c = st.columns([3, 1])
         with col_placa_c:
             placa_carreta = st.text_input(
-                "Placa da Carreta (7 dígitos)", max_chars=7, placeholder="XYZ9A99",
-                key="ae_placa_carreta", label_visibility="collapsed"
+                "Placa da Carreta (7 dígitos)", max_chars=8, placeholder="XYZ-9A99",
+                key="ae_placa_carreta", on_change=_format_placa_carreta, label_visibility="collapsed"
             )
         with col_btn_placa_c:
             st.write("")
