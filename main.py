@@ -729,10 +729,15 @@ def render_ae_express(user):
             placa_digits = (placa_cavalo or "").replace("-", "").strip().upper()
             if len(placa_digits) == 7:
                 veic = services.buscar_veiculo_por_placa(placa_cavalo, user['empresa_id'])
+                
+                # Se encontrou no banco local, mas os dados novos esto vazios, fora buscar no SIL
+                if veic and (veic.get('status_checklist') in ['N/I', None, ''] or veic.get('ultima_posicao') in ['N/I', None, '']):
+                    veic = None
+
                 if veic:
                     st.session_state.ae_veic_tipo = veic.get('tipo_veiculo', 'N/I')
                     st.session_state.ae_veic_pos = veic.get('ultima_posicao', 'N/I')
-                    st.session_state.ae_veic_check = veic.get('checklist', 'N/I')
+                    st.session_state.ae_veic_check = veic.get('status_checklist', 'N/I')
                     st.session_state.ae_veic_validade = veic.get('validade', 'N/I')
                 else:
                     with st.spinner("Buscando veículo no SIL (Opentech)..."):
@@ -742,7 +747,7 @@ def render_ae_express(user):
                             st.session_state.ae_veic_pos = res_sil.get("ultima_posicao", "N/I")
                             st.session_state.ae_veic_check = res_sil.get("checklist", "N/I")
                             st.session_state.ae_veic_validade = res_sil.get("validade", "N/I")
-                            # Salva no banco local
+                            # Salva ou atualiza no banco local
                             dados_salvar = {
                                 "placa": placa_digits,
                                 "tipo_veiculo": res_sil.get("tipo_veiculo", "N/I"),
@@ -786,10 +791,15 @@ def render_ae_express(user):
             placa_carreta_digits = (placa_carreta or "").replace("-", "").strip().upper()
             if len(placa_carreta_digits) == 7:
                 veic = services.buscar_veiculo_por_placa(placa_carreta, user['empresa_id'])
+                
+                # Se encontrou no banco local, mas os dados novos esto vazios, fora buscar no SIL
+                if veic and (veic.get('status_checklist') in ['N/I', None, ''] or veic.get('ultima_posicao') in ['N/I', None, '']):
+                    veic = None
+
                 if veic:
                     st.session_state.ae_carreta_tipo = veic.get('tipo_veiculo', 'N/I')
                     st.session_state.ae_carreta_pos = veic.get('ultima_posicao', 'N/I')
-                    st.session_state.ae_carreta_check = veic.get('checklist', 'N/I')
+                    st.session_state.ae_carreta_check = veic.get('status_checklist', 'N/I')
                     st.session_state.ae_carreta_validade = veic.get('validade', 'N/I')
                 else:
                     with st.spinner("Buscando carreta no SIL (Opentech)..."):
