@@ -979,6 +979,10 @@ def render_ae_express(user):
                             st.session_state.ae_mot_nome = v['nome_motorista']
                             st.session_state.ae_buscou_mot = True
                             st.session_state.ae_buscou_veic = True
+                            st.session_state.ae_veic_tipo = "Cavalo (Relançado)"
+                            if v['placa_carreta']:
+                                st.session_state.ae_buscou_carreta = True
+                                st.session_state.ae_carreta_tipo = "Carreta (Relançado)"
                             
                             def parse_cid_uf(s):
                                 m = _re.match(r"^(.*?)/(..)\s*\((\d+)\)$", s)
