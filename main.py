@@ -710,12 +710,16 @@ def render_ae_express(user):
             if len(placa_digits) == 7:
                 veic = services.buscar_veiculo_por_placa(placa_cavalo, user['empresa_id'])
                 if veic:
-                    st.session_state.ae_veic_tipo = veic['tipo_veiculo']
+                    st.session_state.ae_veic_tipo = veic.get('tipo_veiculo', 'N/I')
+                    st.session_state.ae_veic_pos = veic.get('ultima_posicao', 'N/I')
+                    st.session_state.ae_veic_check = veic.get('checklist', 'N/I')
                 else:
                     with st.spinner("Buscando veículo no SIL (Opentech)..."):
                         res_sil = services.consultar_opentech_veiculo(placa_digits, "TOKEN", usuario_nome=user['nome'])
                         if res_sil and res_sil.get("status") and "Erro" not in res_sil.get("status"):
                             st.session_state.ae_veic_tipo = res_sil.get("tipo_veiculo", "N/I")
+                            st.session_state.ae_veic_pos = res_sil.get("ultima_posicao", "N/I")
+                            st.session_state.ae_veic_check = res_sil.get("checklist", "N/I")
                             # Salva no banco local
                             dados_salvar = {
                                 "placa": placa_digits,
@@ -731,12 +735,15 @@ def render_ae_express(user):
                             services.cadastrar_veiculo(dados_salvar, user['empresa_id'])
                         else:
                             st.session_state.ae_veic_tipo = None
+                            st.session_state.ae_veic_pos = None
+                            st.session_state.ae_veic_check = None
             else:
                 st.warning("⚠️ Digite a placa completa (7 caracteres) antes de buscar.")
 
-        if st.session_state.ae_veic_tipo:
+        if st.session_state.get("ae_veic_tipo"):
             st.success(f"✅ **{(placa_cavalo or '').upper()}** — {st.session_state.ae_veic_tipo}")
-        elif st.session_state.ae_buscou_veic and not st.session_state.ae_veic_tipo:
+            st.caption(f"📍 Última Posição: {st.session_state.get('ae_veic_pos', 'N/I')} | 📋 Checklist: {st.session_state.get('ae_veic_check', 'N/I')}")
+        elif st.session_state.get("ae_buscou_veic") and not st.session_state.get("ae_veic_tipo"):
             st.error("❌ Veículo não encontrado no banco local nem no SIL.")
 
         # ── Placa da Carreta ──
@@ -757,12 +764,16 @@ def render_ae_express(user):
             if len(placa_carreta_digits) == 7:
                 veic = services.buscar_veiculo_por_placa(placa_carreta, user['empresa_id'])
                 if veic:
-                    st.session_state.ae_carreta_tipo = veic['tipo_veiculo']
+                    st.session_state.ae_carreta_tipo = veic.get('tipo_veiculo', 'N/I')
+                    st.session_state.ae_carreta_pos = veic.get('ultima_posicao', 'N/I')
+                    st.session_state.ae_carreta_check = veic.get('checklist', 'N/I')
                 else:
                     with st.spinner("Buscando carreta no SIL (Opentech)..."):
                         res_sil = services.consultar_opentech_veiculo(placa_carreta_digits, "TOKEN", usuario_nome=user['nome'])
                         if res_sil and res_sil.get("status") and "Erro" not in res_sil.get("status"):
                             st.session_state.ae_carreta_tipo = res_sil.get("tipo_veiculo", "N/I")
+                            st.session_state.ae_carreta_pos = res_sil.get("ultima_posicao", "N/I")
+                            st.session_state.ae_carreta_check = res_sil.get("checklist", "N/I")
                             dados_salvar = {
                                 "placa": placa_carreta_digits,
                                 "tipo_veiculo": res_sil.get("tipo_veiculo", "N/I"),
@@ -777,11 +788,14 @@ def render_ae_express(user):
                             services.cadastrar_veiculo(dados_salvar, user['empresa_id'])
                         else:
                             st.session_state.ae_carreta_tipo = None
+                            st.session_state.ae_carreta_pos = None
+                            st.session_state.ae_carreta_check = None
             else:
                 st.warning("⚠️ Digite a placa completa (7 caracteres) antes de buscar.")
 
         if st.session_state.get("ae_carreta_tipo"):
             st.success(f"✅ **{(placa_carreta or '').upper()}** — {st.session_state.ae_carreta_tipo}")
+            st.caption(f"📍 Última Posição: {st.session_state.get('ae_carreta_pos', 'N/I')} | 📋 Checklist: {st.session_state.get('ae_carreta_check', 'N/I')}")
         elif st.session_state.get("ae_buscou_carreta") and not st.session_state.get("ae_carreta_tipo"):
             st.error("❌ Carreta não encontrada no banco local nem no SIL.")
 
