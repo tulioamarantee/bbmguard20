@@ -2130,6 +2130,18 @@ def gerar_pdf_ae(cd_viagem, dados_locais=None):
         st_rodape
     ))
 
+    # ────────────────────────────────
+    # MENSAGEM / POSTER FINAL
+    # ────────────────────────────────
+    poster_path = os.path.join(os.path.dirname(__file__), "assets", "regras_ouro.jpg")
+    if os.path.exists(poster_path):
+        try:
+            elementos.append(PageBreak())
+            poster_img = Image(poster_path, width=17.4*cm, height=25*cm, kind='proportional')
+            elementos.append(poster_img)
+        except Exception as e:
+            logging.getLogger("services").error(f"Erro ao inserir poster na AE #{cd_viagem}: {e}")
+
     # ── 4. Construir e retornar bytes ──
     try:
         doc.build(elementos)
