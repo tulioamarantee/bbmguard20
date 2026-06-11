@@ -1,5 +1,14 @@
 import streamlit as st
 import os
+import base64
+
+def get_bbm_logo_b64():
+    logo_path = os.path.join(os.path.dirname(__file__), "assets", "bbm_logo.png")
+    try:
+        with open(logo_path, "rb") as f:
+            return base64.b64encode(f.read()).decode("utf-8")
+    except Exception:
+        return ""
 
 def apply_custom_branding(user=None):
     """
@@ -102,7 +111,10 @@ def render_header(user=None):
     """
     Cabeçalho Premium do BBM Risk.
     """
-    st.markdown("""
+    logo_b64 = get_bbm_logo_b64()
+    logo_html = f'<img src="data:image/png;base64,{logo_b64}" style="height: 60px;">' if logo_b64 else '⚡'
+
+    st.markdown(f"""
         <div style="background: var(--secondary-background-color); 
                     padding: 22px 28px; 
                     border-radius: 14px; 
@@ -112,12 +124,8 @@ def render_header(user=None):
                     display: flex; 
                     align-items: center; 
                     gap: 20px;">
-            <div style="font-size: 2.8rem; 
-                        background: rgba(128, 128, 128, 0.1); 
-                        padding: 10px 15px; 
-                        border-radius: 10px;
-                        border: 1px solid rgba(128,128,128,0.2);">
-                ⚡
+            <div style="display: flex; align-items: center; justify-content: center;">
+                {logo_html}
             </div>
             <div>
                 <h1 style="color: var(--text-color) !important; 

@@ -40,11 +40,14 @@ def login_screen():
     # Aplicar estilo mesmo no login
     styles.apply_custom_branding()
     
+    logo_b64 = styles.get_bbm_logo_b64()
+    logo_html = f'<img src="data:image/png;base64,{logo_b64}" style="height: 100px; filter: drop-shadow(0 0 10px rgba(0,0,0,0.1)); margin-bottom: 10px;">' if logo_b64 else '<div style="font-size: 3.5rem; filter: drop-shadow(0 0 10px rgba(67,100,247,0.4)); margin-bottom: 10px;">⚡</div>'
+
     col1, col2, col3 = st.columns([1, 1.2, 1])
     with col2:
-        st.markdown("""
+        st.markdown(f"""
             <div style="text-align: center; margin-bottom: 25px; margin-top: 40px;">
-                <div style="font-size: 3.5rem; filter: drop-shadow(0 0 10px rgba(67,100,247,0.4)); margin-bottom: 10px;">⚡</div>
+                {logo_html}
                 <h1 style="font-family: 'Orbitron', sans-serif; font-weight: 900; letter-spacing: 2px; color: var(--text-color); font-size: 2.3rem; margin: 0;">BBM RISK</h1>
                 <span style="color: #90a4ae; font-size: 0.95rem; font-weight: 500;">Controle de Portaria & Gestão de Risco</span>
             </div>
@@ -550,7 +553,7 @@ def render_modal_cadastro_veiculo(user):
                     st.error(msg)
 
 def render_ae_express(user):
-    st.header("⚡ Criar Monitoramento")
+    st.header("📝 Criar Monitoramento")
     st.caption("Cadastre e ative uma Autorização de Embarque (AE) na Opentech usando o mínimo de dados.")
 
     def _callback_relancar(v):
@@ -661,7 +664,7 @@ def render_ae_express(user):
     col_form, col_hist = st.columns([1.8, 1.2])
 
     with col_form:
-        st.subheader("📝 Novo Monitoramento")
+        st.subheader("📄 Novo Monitoramento")
 
         # ── CPF do Motorista ──
         st.markdown("**👤 Motorista**")
@@ -1083,7 +1086,7 @@ def render_ae_express(user):
                     st.rerun()
 
     with col_hist:
-        st.subheader("📋 Viagens & Monitoramentos Ativos")
+        st.subheader("📊 Viagens & Monitoramentos Ativos")
 
         busca_ae = st.text_input("🔎 Filtrar por CPF, Placa, Isca ou Cód. Viagem")
 
