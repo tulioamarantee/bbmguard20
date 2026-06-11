@@ -71,7 +71,7 @@ def main_app():
         
         st.divider()
         if st.button("Sair"):
-            st.session_state.autenticado = False
+            st.session_state.clear()
             st.rerun()
 
     # Título da Página
