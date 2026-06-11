@@ -11,6 +11,26 @@ st.set_page_config(page_title="BBM Risk - Gestão de Risco", layout="wide", page
 # Inicializar Banco de Dados
 init_db()
 
+import contextlib
+
+@contextlib.contextmanager
+def custom_spinner(text="Carregando..."):
+    placeholder = st.empty()
+    gif_url = "https://media.tenor.com/7bZfH9jZ9bYAAAAC/french-bulldog-running.gif"
+    html = f"""
+    <div style="display: flex; align-items: center; gap: 15px; color: var(--text-color); font-weight: 600; margin-bottom: 15px; padding: 12px; background: rgba(67, 100, 247, 0.05); border-radius: 8px; border-left: 4px solid var(--primary-color); box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+        <img src="{gif_url}" width="45" style="border-radius: 50%; background: transparent; mix-blend-mode: multiply;">
+        <span>{text}</span>
+    </div>
+    """
+    placeholder.markdown(html, unsafe_allow_html=True)
+    try:
+        yield
+    finally:
+        placeholder.empty()
+
+st.spinner = custom_spinner
+
 # --- GERENCIAMENTO DE SESSÃO ---
 if 'autenticado' not in st.session_state:
     st.session_state.autenticado = False
