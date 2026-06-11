@@ -570,7 +570,8 @@ def render_ae_express(user):
                 st.session_state.ae_dest_txt = cid_d
                 
         if v.get('valor_carga'):
-            st.session_state.ae_valor_carga = float(v['valor_carga'])
+            v_float = float(v['valor_carga'])
+            st.session_state.ae_valor_carga_str = f"{v_float:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
         if v.get('numero_isca'):
             st.session_state.ae_numero_isca = v['numero_isca']
 
@@ -841,9 +842,32 @@ def render_ae_express(user):
             cnpj_origem = ""
             cnpj_destino = ""
 
-            valor_carga = st.number_input(
-                "Valor da Carga (R$)", min_value=100.0, value=50000.0, step=5000.0, format="%.2f", key="ae_valor_carga"
+            if "ae_valor_carga_str" not in st.session_state:
+                st.session_state.ae_valor_carga_str = "50.000,00"
+
+            valor_carga_str = st.text_input(
+                "Valor da Carga (R$)", key="ae_valor_carga_str"
             )
+            
+            try:
+                import re as _re
+                # Limpa os espaços e eventuais "R$"
+                v_str = valor_carga_str.replace("R$", "").strip()
+                if "," in v_str:
+                    # Se tem vírgula, vamos assumir que o ponto é milhar e a vírgula é decimal (Brasil)
+                    v_limpo = v_str.replace(".", "").replace(",", ".")
+                else:
+                    # Se não tem vírgula, verifica se tem formato americano (ex: 50000.50)
+                    if _re.match(r"^\d+\.\d{1,2}$", v_str):
+                        v_limpo = v_str
+                    else:
+                        # Se não, assumimos que os pontos são de milhar
+                        v_limpo = v_str.replace(".", "")
+                
+                valor_carga = float(v_limpo)
+            except Exception:
+                valor_carga = 50000.0
+
             st.caption("ℹ️ **Produto fixado:** E-commerce")
             numero_isca = st.text_input("Número da Isca (Opcional)", placeholder="Ex: ISCA998877", key="ae_numero_isca")
 
