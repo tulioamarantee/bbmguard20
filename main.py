@@ -82,13 +82,13 @@ def main_app():
         # Definir opções de navegação
         role = (user.get('role') or '').lower()
         if role == 'portaria':
-            opcoes = ["Controle de Portaria", "Controle de Veículos", "Criar Monitoramento"]
+            opcoes = ["Controle de Portaria", "Controle de Mapa", "Criar Monitoramento"]
         elif role == 'supervisor':
-            opcoes = ["Controle de Portaria", "Controle de Veículos", "Criar Monitoramento", "Configurações"]
+            opcoes = ["Controle de Portaria", "Controle de Mapa", "Criar Monitoramento", "Configurações"]
         elif role.startswith('admin'):
-            opcoes = ["Dashboard", "Controle de Portaria", "Controle de Veículos", "Criar Monitoramento", "Configurações"]
+            opcoes = ["Dashboard", "Controle de Portaria", "Controle de Mapa", "Criar Monitoramento", "Configurações"]
         else:
-            opcoes = ["Controle de Portaria", "Controle de Veículos", "Criar Monitoramento"]
+            opcoes = ["Controle de Portaria", "Controle de Mapa", "Criar Monitoramento"]
         
         menu = st.radio("Navegação", opcoes)
         
@@ -109,7 +109,7 @@ def main_app():
             render_dashboard(user)
     elif menu == "Controle de Portaria":
         render_motoristas(user)
-    elif menu == "Controle de Veículos":
+    elif menu == "Controle de Mapa":
         render_veiculos(user)
     elif menu == "Criar Monitoramento":
         render_ae_express(user)
@@ -380,6 +380,30 @@ def render_motoristas(user):
         render_modal_cadastro_sil(user)
             
     busca = st.text_input("🔎 Consultar CPF ou Nome do Motorista")
+    
+    # Se digitar um CPF completo, consulta SIL caso não exista no banco local
+    if busca:
+        cpf_limpo_busca = ''.join(filter(str.isdigit, busca))
+        if len(cpf_limpo_busca) == 11:
+            conn = services.get_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT id FROM motoristas WHERE cpf = %s AND empresa_id = %s", (cpf_limpo_busca, user['empresa_id']))
+            mot_local = cursor.fetchone()
+            conn.close()
+            
+            if not mot_local:
+                with st.spinner(f"CPF não encontrado localmente. Consultando SIL para {cpf_limpo_busca}..."):
+                    res_sil = services.consultar_opentech(cpf_limpo_busca, "TOKEN", usuario_nome=user['nome'])
+                    if "Erro" not in res_sil['status']:
+                        dados = {
+                            'nome': res_sil['nome'], 'cpf': cpf_limpo_busca, 'cnh': res_sil['cnh'], 
+                            'categoria': res_sil['categoria'],
+                            'status_sil': res_sil['status'],
+                            'data_consulta_sil': res_sil['data_consulta'],
+                            'validade': res_sil['validade']
+                        }
+                        services.cadastrar_motorista(dados, user['empresa_id'])
+                        
     motoristas = services.listar_motoristas(user['empresa_id'], busca)
     
     if motoristas:
@@ -412,7 +436,7 @@ def render_motoristas(user):
         if busca: st.warning("Motorista não encontrado.")
 
 def render_veiculos(user):
-    st.header("Controle de Veículos")
+    st.header("Controle de Mapa")
     
     col_t, col_btn = st.columns([3, 1])
     abrir_modal = False
