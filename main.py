@@ -328,9 +328,9 @@ def render_modal_cadastro_sil(user):
     
     st.divider()
     st.subheader("📁 Importação em Massa")
-    uploaded_file = st.file_uploader("Arquivo Excel, PDF ou TXT com CPFs", type=["xlsx", "xls", "pdf", "txt"])
+    uploaded_file = st.file_uploader("Arquivo Excel, PDF ou TXT com CPFs", type=["xlsx", "xls", "pdf", "txt"], key="upload_cpfs_mass")
     if uploaded_file:
-        if st.button("🚀 Iniciar Importação"):
+        if st.button("🚀 Iniciar Importação", key="btn_iniciar_import_cpfs"):
             with st.spinner("Processando..."):
                 ext = uploaded_file.name.split('.')[-1].lower()
                 if ext == 'pdf':

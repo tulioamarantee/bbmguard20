@@ -188,14 +188,22 @@ def cadastrar_motorista(dados, empresa_id):
         cursor.execute('''
             INSERT INTO motoristas (nome, cpf, cnh, categoria, status_sil, data_consulta_sil, data_expiracao, empresa_id)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (cpf, empresa_id) DO UPDATE SET
+                nome = EXCLUDED.nome,
+                cnh = EXCLUDED.cnh,
+                categoria = EXCLUDED.categoria,
+                status_sil = EXCLUDED.status_sil,
+                data_consulta_sil = EXCLUDED.data_consulta_sil,
+                data_expiracao = EXCLUDED.data_expiracao
         ''', (dados['nome'], dados['cpf'], dados['cnh'], dados['categoria'], 
               dados['status_sil'], dados['data_consulta_sil'], dados.get('validade', 'N/I'), empresa_id))
         conn.commit()
-        return True, f"Motorista {dados['nome']} cadastrado com sucesso!"
-    except sqlite3.IntegrityError:
-        return False, "Erro: Este motorista já está cadastrado nesta empresa."
+        return True, f"Motorista {dados['nome']} atualizado/cadastrado com sucesso!"
+    except Exception as e:
+        return False, f"Erro: {str(e)}"
     finally:
         conn.close()
+
 def cadastrar_usuario(nome, login, senha, cpf, data_nascimento, email, empresa_id, role='Portaria'):
     """
     Cadastra um novo usuário na tabela `usuarios`.
@@ -249,7 +257,7 @@ def get_produtividade_usuarios(empresa_id):
             COUNT(DISTINCT v.id) AS "AEs Criadas"
         FROM usuarios u
         LEFT JOIN registros_acesso r ON u.id = r.usuario_id AND r.empresa_id = u.empresa_id
-        LEFT JOIN viagens v ON u.id = v.usuario_id AND v.empresa_id = u.empresa_id
+        LEFT JOIN viagens v ON u.id = v.usuario_id AND v.empresa_id = v.empresa_id
         WHERE u.empresa_id = %s
         GROUP BY u.id
         ORDER BY "AEs Criadas" DESC, "Consultas SIL (Motorista/Veículo)" DESC
@@ -397,27 +405,15 @@ def importar_motoristas_excel(file, empresa_id, usuario_nome):
                     'data_consulta_sil': res['data_consulta'],
                     'validade': res['validade']
                 }
-                # Tenta cadastrar. Se já existir, a função cadastrar_motorista retorna False.
+                # Tenta cadastrar.
                 sucesso, _ = cadastrar_motorista(dados, empresa_id)
                 
                 tipo_import = "Novo"
                 if sucesso:
                     importados += 1
                 else:
-                    # Se já existe, vamos forçar a atualização dos dados SIL
-                    conn = get_connection()
-                    cursor = conn.cursor()
-                    cursor.execute("SELECT id FROM motoristas WHERE cpf = %s AND empresa_id = %s", (cpf_limpo, empresa_id))
-                    mot_id = cursor.fetchone()[0]
-                    conn.close()
-                    
-                    ok, _ = atualizar_sil_motorista(mot_id, cpf_limpo, empresa_id, usuario_nome)
-                    if ok: 
-                        duplicados += 1
-                        tipo_import = "Atualizado"
-                    else: 
-                        erros += 1
-                        tipo_import = "Falha"
+                    erros += 1
+                    tipo_import = "Falha"
                         
                 detalhes_processamento.append(
                     f"- **{res['nome']}** ({cpf_limpo}) | SIL: {status_emoji} {res['status']} | Validade: {validade_status} | ({tipo_import})"
@@ -432,7 +428,6 @@ def importar_motoristas_excel(file, empresa_id, usuario_nome):
             f"📊 **Resumo do Processamento:**\n"
             f"- **Total de CPFs na Planilha:** {len(cpfs_limpos)}\n"
             f"- **Novos cadastrados:** {importados}\n"
-            f"- **Atualizados (já cadastrados):** {duplicados}\n"
             f"- **Falhas no processamento:** {erros}\n\n"
             f"🔍 **Status SIL Opentech:**\n"
             f"- ✅ **Validados:** {validados}\n"
@@ -472,7 +467,6 @@ def importar_motoristas_pdf(file, empresa_id, usuario_nome):
                 
         importados = 0
         erros = 0
-        duplicados = 0
         validados = 0
         bloqueados = 0
         vencidos = 0
@@ -480,29 +474,19 @@ def importar_motoristas_pdf(file, empresa_id, usuario_nome):
         
         hoje = datetime.now()
         
-        # Filtrar e limpar todos os CPFs válidos
-        cpfs_limpos = []
-        for cpf in cpfs_encontrados:
-            cpf_limpo = ''.join(filter(str.isdigit, cpf)).zfill(11)
-            if len(cpf_limpo) == 11 and cpf_limpo not in cpfs_limpos:
-                cpfs_limpos.append(cpf_limpo)
-                
-        if not cpfs_limpos:
-            return False, "Nenhum CPF válido encontrado no PDF."
-            
         # Consultar Opentech em paralelo usando ThreadPoolExecutor
         resultados_opentech = {}
         def consultar_paralelo(c):
             return c, consultar_opentech(c, "TOKEN", usuario_nome)
             
         with ThreadPoolExecutor(max_workers=10) as executor:
-            futures = [executor.submit(consultar_paralelo, c) for c in cpfs_limpos]
+            futures = [executor.submit(consultar_paralelo, c) for c in cpfs]
             for future in futures:
                 c, res = future.result()
                 resultados_opentech[c] = res
                 
         # Gravar no Banco de Dados SQLite sequencialmente
-        for cpf_limpo in cpfs_limpos:
+        for cpf_limpo in cpfs:
             res = resultados_opentech[cpf_limpo]
             if "Erro" not in res['status']:
                 status_sil = res['status']
@@ -538,34 +522,16 @@ def importar_motoristas_pdf(file, empresa_id, usuario_nome):
                     'data_consulta_sil': res['data_consulta'],
                     'validade': res['validade']
                 }
-                # Tenta cadastrar. Se já existir, a função cadastrar_motorista retorna False.
+                
                 sucesso, _ = cadastrar_motorista(dados, empresa_id)
                 
-                tipo_import = "Novo"
                 if sucesso:
                     importados += 1
                 else:
-                    # Se já existe, vamos forçar a atualização dos dados SIL
-                    conn = get_connection()
-                    cursor = conn.cursor()
-                    cursor.execute("SELECT id FROM motoristas WHERE cpf = %s AND empresa_id = %s", (cpf_limpo, empresa_id))
-                    mot = cursor.fetchone()
-                    conn.close()
-                    
-                    if mot:
-                        ok, _ = atualizar_sil_motorista(mot[0], cpf_limpo, empresa_id, usuario_nome)
-                        if ok: 
-                            duplicados += 1
-                            tipo_import = "Atualizado"
-                        else: 
-                            erros += 1
-                            tipo_import = "Falha"
-                    else:
-                        erros += 1
-                        tipo_import = "Falha"
+                    erros += 1
                         
                 detalhes_processamento.append(
-                    f"- **{res['nome']}** ({cpf_limpo}) | SIL: {status_emoji} {res['status']} | Validade: {validade_status} | ({tipo_import})"
+                    f"- **{res['nome']}** ({cpf_limpo}) | SIL: {status_emoji} {res['status']} | Validade: {validade_status}"
                 )
             else:
                 erros += 1
@@ -575,9 +541,8 @@ def importar_motoristas_pdf(file, empresa_id, usuario_nome):
         msg = (
             f"Importação de PDF concluída com sucesso!\n\n"
             f"📊 **Resumo do Processamento:**\n"
-            f"- **Total de CPFs no PDF:** {len(cpfs_limpos)}\n"
+            f"- **Total de CPFs no PDF:** {len(cpfs)}\n"
             f"- **Novos cadastrados:** {importados}\n"
-            f"- **Atualizados (já cadastrados):** {duplicados}\n"
             f"- **Falhas no processamento:** {erros}\n\n"
             f"🔍 **Status SIL Opentech:**\n"
             f"- ✅ **Validados:** {validados}\n"
@@ -613,7 +578,6 @@ def importar_motoristas_txt(file, empresa_id, usuario_nome):
                 
         importados = 0
         erros = 0
-        duplicados = 0
         validados = 0
         bloqueados = 0
         vencidos = 0
@@ -669,30 +633,13 @@ def importar_motoristas_txt(file, empresa_id, usuario_nome):
                 }
                 
                 sucesso, _ = cadastrar_motorista(dados, empresa_id)
-                tipo_import = "Novo"
                 if sucesso:
                     importados += 1
                 else:
-                    conn = get_connection()
-                    cursor = conn.cursor()
-                    cursor.execute("SELECT id FROM motoristas WHERE cpf = %s AND empresa_id = %s", (cpf_limpo, empresa_id))
-                    mot = cursor.fetchone()
-                    conn.close()
-                    
-                    if mot:
-                        ok, _ = atualizar_sil_motorista(mot[0], cpf_limpo, empresa_id, usuario_nome)
-                        if ok: 
-                            duplicados += 1
-                            tipo_import = "Atualizado"
-                        else: 
-                            erros += 1
-                            tipo_import = "Falha"
-                    else:
-                        erros += 1
-                        tipo_import = "Falha"
+                    erros += 1
                         
                 detalhes_processamento.append(
-                    f"- **{res['nome']}** ({cpf_limpo}) | SIL: {status_emoji} {res['status']} | Validade: {validade_status} | ({tipo_import})"
+                    f"- **{res['nome']}** ({cpf_limpo}) | SIL: {status_emoji} {res['status']} | Validade: {validade_status}"
                 )
             else:
                 erros += 1
@@ -704,7 +651,6 @@ def importar_motoristas_txt(file, empresa_id, usuario_nome):
             f"📊 **Resumo do Processamento:**\n"
             f"- **Total de CPFs no TXT:** {len(cpfs)}\n"
             f"- **Novos cadastrados:** {importados}\n"
-            f"- **Atualizados (já cadastrados):** {duplicados}\n"
             f"- **Falhas no processamento:** {erros}\n\n"
             f"🔍 **Status SIL Opentech:**\n"
             f"- ✅ **Validados:** {validados}\n"
@@ -1085,12 +1031,19 @@ def cadastrar_veiculo(dados, empresa_id):
         cursor.execute('''
             INSERT INTO veiculos (placa, tipo_veiculo, status_sil, validade, ultima_posicao, status_checklist, data_consulta, empresa_id, rastreadores, segundo_rastreador)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (placa, empresa_id) DO UPDATE SET
+                tipo_veiculo = EXCLUDED.tipo_veiculo,
+                status_sil = EXCLUDED.status_sil,
+                validade = EXCLUDED.validade,
+                ultima_posicao = EXCLUDED.ultima_posicao,
+                status_checklist = EXCLUDED.status_checklist,
+                data_consulta = EXCLUDED.data_consulta,
+                rastreadores = EXCLUDED.rastreadores,
+                segundo_rastreador = EXCLUDED.segundo_rastreador
         ''', (dados['placa'], dados['tipo_veiculo'], dados['status'], 
               dados['validade'], dados['ultima_posicao'], dados['checklist'], dados['data_consulta'], empresa_id, dados.get('rastreadores', 'N/I'), dados.get('segundo_rastreador', 'Não possui')))
         conn.commit()
-        return True, f"Veículo placa {dados['placa']} cadastrado com sucesso!"
-    except sqlite3.IntegrityError:
-        return False, "Erro: Este veículo já está cadastrado nesta empresa."
+        return True, f"Veículo placa {dados['placa']} atualizado/cadastrado com sucesso!"
     except Exception as e:
         return False, f"Erro ao cadastrar: {str(e)}"
     finally:
