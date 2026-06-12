@@ -177,7 +177,7 @@ def render_config(user):
                 with st.form("criar_usuario_form"):
                     st.subheader("Criar novo usuário")
                     nome = st.text_input("Nome completo")
-                    cpf_raw = st.text_input("CPF (apenas números)", max_chars=11, placeholder="000.000.000-00")
+                    cpf_raw = st.text_input("CPF (apenas números)", placeholder="000.000.000-00")
                     cpf = f"{cpf_raw[:3]}.{cpf_raw[3:6]}.{cpf_raw[6:9]}-{cpf_raw[9:]}" if len(cpf_raw) == 11 else cpf_raw
                     data_nasc = st.date_input(
                         "Data de Nascimento",
@@ -705,7 +705,7 @@ def render_ae_express(user):
         col_cpf, col_btn_cpf = st.columns([3, 1])
         with col_cpf:
             cpf_input = st.text_input(
-                "CPF (apenas números)", max_chars=14, placeholder="000.000.000-00",
+                "CPF (apenas números)", placeholder="000.000.000-00",
                 key="ae_cpf", on_change=_format_cpf, label_visibility="collapsed"
             )
         with col_btn_cpf:
@@ -754,7 +754,7 @@ def render_ae_express(user):
         col_placa, col_btn_placa = st.columns([3, 1])
         with col_placa:
             placa_cavalo = st.text_input(
-                "Placa (7 dígitos)", max_chars=8, placeholder="ABC-1D23",
+                "Placa (7 dígitos)", placeholder="ABC-1D23",
                 key="ae_placa", on_change=_format_placa, label_visibility="collapsed"
             )
         with col_btn_placa:
@@ -816,7 +816,7 @@ def render_ae_express(user):
         col_placa_c, col_btn_placa_c = st.columns([3, 1])
         with col_placa_c:
             placa_carreta = st.text_input(
-                "Placa da Carreta (7 dígitos)", max_chars=8, placeholder="XYZ-9A99",
+                "Placa da Carreta (7 dígitos)", placeholder="XYZ-9A99",
                 key="ae_placa_carreta", on_change=_format_placa_carreta, label_visibility="collapsed"
             )
         with col_btn_placa_c:
