@@ -1407,7 +1407,7 @@ def listar_viagens(empresa_id, busca=""):
     params = [empresa_id]
     
     if busca:
-        query += " AND (cpf_motorista LIKE %s OR nome_motorista LIKE %s OR placa_cavalo LIKE %s OR placa_carreta LIKE %s OR cd_viagem LIKE %s)"
+        query += " AND (cpf_motorista ILIKE %s OR nome_motorista ILIKE %s OR placa_cavalo ILIKE %s OR placa_carreta ILIKE %s OR CAST(cd_viagem AS TEXT) ILIKE %s)"
         params.extend([f"%{busca}%", f"%{busca}%", f"%{busca}%", f"%{busca}%", f"%{busca}%"])
         
     query += " ORDER BY id DESC"
