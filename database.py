@@ -255,6 +255,19 @@ def init_db():
         seed_data(conn)
     # Auto-migration for missing columns (Streamlit Cloud Postgres update)
     def add_col_if_needed(table, col, dtype):
+        # Primeiro testa se a coluna já existe com um SELECT simples
+        # Isso evita pedir um lock exclusivo de DDL no Postgres, que trava o sistema
+        try:
+            cursor.execute(f"SELECT {col} FROM {table} LIMIT 1")
+            # Se não deu erro, a coluna existe, pode sair
+            return
+        except Exception:
+            try:
+                conn.conn.rollback()
+            except Exception:
+                pass
+                
+        # Se deu erro, tentamos adicionar a coluna
         try:
             cursor.execute(f"ALTER TABLE {table} ADD COLUMN {col} {dtype}")
             conn.commit()
