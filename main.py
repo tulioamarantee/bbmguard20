@@ -100,8 +100,25 @@ def main_app():
         st.markdown("<br><br><br>", unsafe_allow_html=True)
         if st.button("v1.0.0", use_container_width=True):
             st.balloons()
-            st.image("https://media.tenor.com/7bZfH9jZ9bYAAAAC/french-bulldog-running.gif")
-            st.success("Woof woof! 🐶")
+            st.markdown("""
+                <style>
+                @keyframes flyDog {
+                    0% { transform: translateY(100vh) translateX(-50%) scale(0.5); opacity: 0; }
+                    10% { opacity: 1; }
+                    100% { transform: translateY(-100vh) translateX(-50%) scale(1.5); opacity: 0; }
+                }
+                .flying-dog {
+                    position: fixed;
+                    bottom: -100px;
+                    left: 50%;
+                    z-index: 999999;
+                    animation: flyDog 4s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+                    pointer-events: none;
+                }
+                </style>
+                <img src="https://media.tenor.com/7bZfH9jZ9bYAAAAC/french-bulldog-running.gif" class="flying-dog" width="150">
+            """, unsafe_allow_html=True)
+            st.success("Woof woof! 🐶 O Bulldog decolou!")
 
     # Título da Página
     styles.render_header(user)
