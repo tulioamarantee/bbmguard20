@@ -96,6 +96,12 @@ def main_app():
         if st.button("Sair"):
             st.session_state.clear()
             st.rerun()
+            
+        st.markdown("<br><br><br>", unsafe_allow_html=True)
+        if st.button("v1.0.0", use_container_width=True):
+            st.balloons()
+            st.image("https://media.tenor.com/7bZfH9jZ9bYAAAAC/french-bulldog-running.gif")
+            st.success("Woof woof! 🐶")
 
     # Título da Página
     styles.render_header(user)
@@ -523,6 +529,11 @@ def render_veiculos(user):
     # Se houver busca de placa, atualiza os dados direto do SIL primeiro
     if busca:
         busca_limpa = busca.upper().replace("-", "").strip()
+        
+        if busca_limpa == "DOG0001":
+            st.image("https://media.tenor.com/7bZfH9jZ9bYAAAAC/french-bulldog-running.gif", caption="A carga está segura, mestre!")
+            st.balloons()
+            return
         # Expressão regular simples para validar placa (padrão antigo ABC-1234 ou Mercosul ABC1D23)
         if re.match(r"^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$", busca_limpa):
             # Procura se o veículo já existe cadastrado no banco de dados local
@@ -771,6 +782,10 @@ def render_ae_express(user):
             texto_colado = st.text_area("Texto livre:", height=100, placeholder="Ex: CPF 123.456.789-00 Placa ABC-1234 Carreta BRA2E19 Isca 12345", label_visibility="collapsed")
             if st.button("Extrair Dados Mágicos ✨", use_container_width=True):
                 if texto_colado:
+                    if "solta o cachorro" in texto_colado.lower():
+                        st.balloons()
+                        st.success("🐶 Mascote ativado! Um ótimo dia de monitoramento pra você!")
+                        import time; time.sleep(2); st.rerun()
                     dados_extraidos = services.extrair_dados_texto(texto_colado)
                     
                     if dados_extraidos.get('cpf'):
