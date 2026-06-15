@@ -766,6 +766,27 @@ def render_ae_express(user):
     with col_form:
         st.subheader("📄 Novo Monitoramento")
 
+        with st.expander("📋 Colar Dados Rápidos (WhatsApp)", expanded=False):
+            st.caption("Cole a mensagem do motorista aqui para extrair automaticamente CPF, Placa, Carreta e Isca.")
+            texto_colado = st.text_area("Texto livre:", height=100, placeholder="Ex: CPF 123.456.789-00 Placa ABC-1234 Carreta BRA2E19 Isca 12345", label_visibility="collapsed")
+            if st.button("Extrair Dados Mágicos ✨", use_container_width=True):
+                if texto_colado:
+                    dados_extraidos = services.extrair_dados_texto(texto_colado)
+                    
+                    if dados_extraidos.get('cpf'):
+                        st.session_state.ae_cpf = dados_extraidos['cpf']
+                    if dados_extraidos.get('placa'):
+                        st.session_state.ae_placa = dados_extraidos['placa']
+                    if dados_extraidos.get('placa_carreta'):
+                        st.session_state.ae_placa_carreta = dados_extraidos['placa_carreta']
+                    if dados_extraidos.get('isca'):
+                        st.session_state.ae_numero_isca = dados_extraidos['isca']
+                    
+                    st.success("✅ Dados extraídos com sucesso!")
+                    import time
+                    time.sleep(1)
+                    st.rerun()
+
         # ── CPF do Motorista ──
         st.markdown("**👤 Motorista**")
         col_cpf, col_btn_cpf = st.columns([3, 1])

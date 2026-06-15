@@ -2172,3 +2172,52 @@ def gerar_pdf_ae(cd_viagem, dados_locais=None):
 
 
 
+
+import re
+
+def extrair_dados_texto(texto):
+    """
+    Função de Smart Paste (WhatsApp).
+    Analisa um bloco de texto e tenta extrair CPF e Placas.
+    Retorna um dicionário com os dados encontrados.
+    """
+    dados = {
+        'cpf': '',
+        'placa': '',
+        'placa_carreta': '',
+        'isca': ''
+    }
+    
+    if not texto:
+        return dados
+        
+    # Extrair CPF (formato numérico com ou sem pontuação)
+    # Busca 11 dígitos juntos ou separados por ponto/traço
+    match_cpf = re.search(r'(?:\d[^\d]*){11}', texto)
+    if match_cpf:
+        cpf_limpo = ''.join(filter(str.isdigit, match_cpf.group()))
+        if len(cpf_limpo) == 11:
+            # Formatar CPF
+            dados['cpf'] = f"{cpf_limpo[:3]}.{cpf_limpo[3:6]}.{cpf_limpo[6:9]}-{cpf_limpo[9:]}"
+            
+    # Extrair Placas (Padrão Antigo ABC-1234 e Mercosul ABC1D23)
+    # Regex: 3 letras, seguido de 0 ou 1 traço ou espaço, seguido de 1 numero, 1 letra/numero, e 2 numeros
+    padrao_placa = r'([A-Za-z]{3})[\s-]?([0-9][A-Za-z0-9][0-9]{2})'
+    placas_encontradas = re.findall(padrao_placa, texto)
+    
+    if placas_encontradas:
+        # Pega a primeira placa para o Cavalo
+        p1_letras, p1_numeros = placas_encontradas[0]
+        dados['placa'] = f"{p1_letras.upper()}-{p1_numeros.upper()}"
+        
+        # Se tiver mais de uma, pega a segunda para a Carreta
+        if len(placas_encontradas) > 1:
+            p2_letras, p2_numeros = placas_encontradas[1]
+            dados['placa_carreta'] = f"{p2_letras.upper()}-{p2_numeros.upper()}"
+            
+    # Extrair Isca (procura pelas palavras Isca, Rastreador Móvel seguidas de números)
+    match_isca = re.search(r'(?i)(?:isca|rastreador[\s_]+m[oó]vel)[\s:-]*([A-Za-z0-9]{4,15})', texto)
+    if match_isca:
+        dados['isca'] = match_isca.group(1).upper()
+
+    return dados
