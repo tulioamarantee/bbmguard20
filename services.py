@@ -1245,6 +1245,20 @@ def processar_lote_veiculos(placas_encontradas, empresa_id, usuario_nome, origem
             erros += 1
             detalhes_processamento.append(f"- Placa **{placa}** | ❌ Erro Opentech: {res['status']}")
             
+    detalhes_str = "\n".join(detalhes_processamento)
+    msg = (
+        f"Importação de {origem} concluída com sucesso!\n\n"
+        f"📊 **Resumo do Processamento:**\n"
+        f"- **Total de Placas:** {len(placas_limpas)}\n"
+        f"- **Cadastrados / Atualizados:** {importados + duplicados}\n"
+        f"- **Falhas no processamento:** {erros}\n\n"
+        f"🔍 **Status SIL Opentech:**\n"
+        f"- ✅ **Liberados:** {validados}\n"
+        f"- ❌ **Bloqueados/Outros:** {bloqueados}\n"
+        f"- 📅 **Vencidos:** {vencidos}\n\n"
+        f"📋 **Lista de Veículos Processados:**\n"
+        f"{detalhes_str}"
+    )
     return True, msg
 
 
