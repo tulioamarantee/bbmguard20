@@ -1077,8 +1077,8 @@ def render_ae_express(user):
                 hora_prev_fim = st.time_input("Hora de Fim", datetime.now().time(), key="h_fim")
             previsao_fim_dt = datetime.combine(data_prev_fim, hora_prev_fim)
 
-            # Apenas usuários supervisor ou admin podem usar modo simulação
-            if user.get('role', '').lower() in ['admin', 'supervisor']:
+            # Apenas usuários admin podem usar modo simulação
+            if user.get('role', '').lower().startswith('admin'):
                 modo_simulacao = st.checkbox(
                     "Modo de Simulação (Recomendado para Testes)", value=True,
                     help="Evita chamadas de produção que possam falhar por falta de dados reais cadastrados no webservice da Opentech."
