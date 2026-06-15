@@ -2216,7 +2216,7 @@ def extrair_dados_texto(texto):
             dados['placa_carreta'] = f"{p2_letras.upper()}-{p2_numeros.upper()}"
             
     # Extrair Isca (procura pelas palavras Isca, Rastreador Móvel seguidas de números)
-    match_isca = re.search(r'(?i)(?:isca|rastreador[\s_]+m[oó]vel)[\s:-]*([A-Za-z0-9]{4,15})', texto)
+    match_isca = re.search(r'(?i)(?:isca|rastreador[\s_]+m[oó]vel)[\s:-]*([A-Za-z0-9]{2,20})', texto)
     if match_isca:
         dados['isca'] = match_isca.group(1).upper()
 
