@@ -855,27 +855,31 @@ def get_prontuario(motorista_id, empresa_id):
     conn.close()
     return motorista, ocorrencias, recentes
 
-def get_stats_dashboard(empresa_id, dias_vencimento=0):
+def get_stats_dashboard(empresa_id, dias_vencimento=0, dt_inicio=None, dt_fim=None):
     """
-    Estatísticas focadas em Portaria: Ativos, Vencidos (ou a vencer) e Liberações do Dia.
+    Estatísticas focadas em Portaria: Ativos, Vencidos (ou a vencer) e Liberações do Período.
     """
     conn = get_connection()
     cursor = conn.cursor()
     hoje_dt = datetime.now()
     hoje_str = hoje_dt.strftime("%Y-%m-%d")
     
+    if not dt_inicio:
+        dt_inicio = hoje_str
+    if not dt_fim:
+        dt_fim = hoje_str
+    
     # Se dias_vencimento > 0, queremos ver os que vencem nos próximos X dias.
-    # Ex: dias_vencimento=7 -> (vencem hoje + 7 dias)
     if dias_vencimento > 0:
-        dt_limite = (hoje_dt + timedelta(days=dias_vencimento)).strftime("%Y-%m-%d")
-        condicao_vencimento = f"data_expiracao <= '{dt_limite}' AND data_expiracao >= '{hoje_str}'"
+        dt_limite_venc = (hoje_dt + timedelta(days=dias_vencimento)).strftime("%Y-%m-%d")
+        condicao_vencimento = f"data_expiracao <= '{dt_limite_venc}' AND data_expiracao >= '{hoje_str}'"
     else:
         # Padrão: já vencidos
         condicao_vencimento = f"data_expiracao < '{hoje_str}'"
 
-    # Consultas hoje (Total de pesquisas na portaria)
-    cursor.execute("SELECT COUNT(*) FROM registros_acesso WHERE empresa_id = %s AND data_hora LIKE %s", (empresa_id, f"{hoje_str}%"))
-    consultas_hoje = cursor.fetchone()[0]
+    # Consultas no período (Total de pesquisas na portaria)
+    cursor.execute("SELECT COUNT(*) FROM registros_acesso WHERE empresa_id = %s AND data_hora >= %s AND data_hora <= %s", (empresa_id, f"{dt_inicio} 00:00:00", f"{dt_fim} 23:59:59"))
+    consultas_periodo = cursor.fetchone()[0]
     
     # Cadastros Ativos (Status Interno Ativo e Data Expiração > Hoje)
     cursor.execute('''
@@ -893,74 +897,48 @@ def get_stats_dashboard(empresa_id, dias_vencimento=0):
     ''', (empresa_id,))
     cadastros_vencidos = cursor.fetchone()[0]
     
-    # Liberações Hoje (Consultas que retornaram Validado ou Liberado hoje)
+    # Liberações no Período (Consultas que retornaram Validado ou Liberado hoje)
     cursor.execute('''
         SELECT COUNT(*) FROM registros_acesso 
         WHERE empresa_id = %s AND (status_resultado LIKE '%%Validado%%' OR status_resultado LIKE '%%Liberado%%')
-        AND data_hora LIKE %s
-    ''', (empresa_id, f"{hoje_str}%"))
-    liberacoes_hoje = cursor.fetchone()[0]
+        AND data_hora >= %s AND data_hora <= %s
+    ''', (empresa_id, f"{dt_inicio} 00:00:00", f"{dt_fim} 23:59:59"))
+    liberacoes_periodo = cursor.fetchone()[0]
     
     stats = {
         'cadastros_ativos': cadastros_ativos,
         'cadastros_vencidos': cadastros_vencidos,
-        'liberacoes_hoje': liberacoes_hoje,
-        'consultas_hoje': consultas_hoje
+        'liberacoes_periodo': liberacoes_periodo,
+        'consultas_periodo': consultas_periodo
     }
     conn.close()
     return stats
 
-def get_aes_criadas_qtd(empresa_id, dias_filtro):
+def get_aes_criadas_qtd(empresa_id, dt_inicio, dt_fim):
     conn = get_connection()
     cursor = conn.cursor()
-    if dias_filtro == 0:
-        # Hoje
-        hoje_str = datetime.now().strftime("%Y-%m-%d")
-        query = "SELECT COUNT(*) FROM viagens WHERE empresa_id = %s AND data_criacao LIKE %s"
-        cursor.execute(query, (empresa_id, f"{hoje_str}%"))
-    else:
-        dt_limite = (datetime.now() - timedelta(days=dias_filtro)).strftime("%Y-%m-%d 00:00:00")
-        query = "SELECT COUNT(*) FROM viagens WHERE empresa_id = %s AND data_criacao >= %s"
-        cursor.execute(query, (empresa_id, dt_limite))
+    query = "SELECT COUNT(*) FROM viagens WHERE empresa_id = %s AND data_criacao >= %s AND data_criacao <= %s"
+    cursor.execute(query, (empresa_id, f"{dt_inicio} 00:00:00", f"{dt_fim} 23:59:59"))
     qtd = cursor.fetchone()[0]
     conn.close()
     return qtd
 
-def get_cadastros_criados(empresa_id, dias_filtro):
+def get_cadastros_criados(empresa_id, dt_inicio, dt_fim):
     conn = get_connection()
     cursor = conn.cursor()
-    if dias_filtro == 0:
-        dt_limite = datetime.now().strftime("%Y-%m-%d")
-        like_filter = True
-    else:
-        dt_limite = (datetime.now() - timedelta(days=dias_filtro)).strftime("%Y-%m-%d 00:00:00")
-        like_filter = False
-
     qtd = 0
     for tabela in ['motoristas', 'veiculos']:
-        if like_filter:
-            cursor.execute(f"SELECT COUNT(*) FROM {tabela} WHERE empresa_id = %s AND data_criacao LIKE %s", (empresa_id, f"{dt_limite}%"))
-        else:
-            cursor.execute(f"SELECT COUNT(*) FROM {tabela} WHERE empresa_id = %s AND data_criacao >= %s", (empresa_id, dt_limite))
+        cursor.execute(f"SELECT COUNT(*) FROM {tabela} WHERE empresa_id = %s AND data_criacao >= %s AND data_criacao <= %s", (empresa_id, f"{dt_inicio} 00:00:00", f"{dt_fim} 23:59:59"))
         qtd += cursor.fetchone()[0]
-        
     conn.close()
     return qtd
 
-def get_aes_por_usuario(empresa_id, dias_filtro):
+def get_aes_por_usuario(empresa_id, dt_inicio, dt_fim):
     conn = get_connection()
     cursor = conn.cursor()
     
-    params = [empresa_id]
-    where_clause = ""
-    if dias_filtro == 0:
-        hoje_str = datetime.now().strftime("%Y-%m-%d")
-        where_clause = "AND v.data_criacao LIKE %s"
-        params.append(f"{hoje_str}%")
-    else:
-        dt_limite = (datetime.now() - timedelta(days=dias_filtro)).strftime("%Y-%m-%d 00:00:00")
-        where_clause = "AND v.data_criacao >= %s"
-        params.append(dt_limite)
+    params = [empresa_id, f"{dt_inicio} 00:00:00", f"{dt_fim} 23:59:59"]
+    where_clause = "AND v.data_criacao >= %s AND v.data_criacao <= %s"
         
     query = f'''
         SELECT u.nome, COUNT(v.id) as total_aes
