@@ -103,16 +103,14 @@ def main_app():
             st.markdown("""
                 <style>
                 @keyframes flyDog {
-                    0% { transform: translateY(100vh) translateX(-50%) scale(0.5); opacity: 0; }
-                    10% { opacity: 1; }
-                    100% { transform: translateY(-100vh) translateX(-50%) scale(1.5); opacity: 0; }
+                    0% { bottom: -150px; transform: translateX(-50%) scale(0.5); opacity: 1; }
+                    100% { bottom: 120vh; transform: translateX(-50%) scale(1.5); opacity: 1; }
                 }
                 .flying-dog {
                     position: fixed;
-                    bottom: -100px;
                     left: 50%;
                     z-index: 999999;
-                    animation: flyDog 4s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+                    animation: flyDog 4s ease-out forwards;
                     pointer-events: none;
                 }
                 </style>
