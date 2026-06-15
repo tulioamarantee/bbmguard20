@@ -851,3 +851,51 @@ def gerar_ae_v9(dados):
     if cd_viagem:
         return {"cd_viagem": cd_viagem}
     return {"error": "AE gerada, mas CDVIAG não retornado."}
+
+def consultar_coordenadas_veiculo(placa):
+    """Consulta a última posição do veículo e retorna lat, long e referência."""
+    chave = sgr_login()
+    if not chave:
+        return None
+
+    placa_limpa = placa.upper().replace("-", "").strip()
+    body = f"""<?xml version="1.0" encoding="utf-8"?>
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:tem="http://tempuri.org/">
+  <soapenv:Header/>
+  <soapenv:Body>
+    <tem:sgrRetornaUltimaPosicaoVeiculo>
+      <tem:chaveacesso>{chave}</tem:chaveacesso>
+      <tem:cdcliente>{CD_CLIENTE}</tem:cdcliente>
+      <tem:cdpas>{CD_PAS}</tem:cdpas>
+      <tem:nrplaca>{placa_limpa}</tem:nrplaca>
+    </tem:sgrRetornaUltimaPosicaoVeiculo>
+  </soapenv:Body>
+</soapenv:Envelope>"""
+
+    resp = post_soap("sgrRetornaUltimaPosicaoVeiculo", body)
+    if not resp:
+        return None
+
+    return_id = find_text(resp, "ReturnID")
+    if return_id != "0":
+        return None
+
+    lat = find_text(resp, "VLLAT")
+    lon = find_text(resp, "VLLONG")
+    dt_pos = find_text(resp, "DTPOSICAO")
+    ref = find_text(resp, "REFERENCIA")
+    cidade = find_text(resp, "CIDADE")
+
+    if lat and lon:
+        try:
+            return {
+                "lat": float(lat.replace(",", ".")),
+                "lon": float(lon.replace(",", ".")),
+                "data_posicao": dt_pos,
+                "referencia": ref,
+                "cidade": cidade,
+                "placa": placa_limpa
+            }
+        except ValueError:
+            return None
+    return None

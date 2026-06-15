@@ -84,11 +84,11 @@ def main_app():
         if role == 'portaria':
             opcoes = ["Controle de Portaria", "Controle de Mapa", "Criar Monitoramento"]
         elif role == 'supervisor':
-            opcoes = ["Controle de Portaria", "Controle de Mapa", "Criar Monitoramento", "Configurações"]
+            opcoes = ["Controle de Portaria", "Controle de Mapa", "🗺️ Torre de Controle", "Criar Monitoramento", "Configurações"]
         elif role.startswith('admin'):
-            opcoes = ["Dashboard", "Controle de Portaria", "Controle de Mapa", "Criar Monitoramento", "Configurações"]
+            opcoes = ["Dashboard", "Controle de Portaria", "Controle de Mapa", "🗺️ Torre de Controle", "Criar Monitoramento", "Configurações"]
         else:
-            opcoes = ["Controle de Portaria", "Controle de Mapa", "Criar Monitoramento"]
+            opcoes = ["Controle de Portaria", "Controle de Mapa", "🗺️ Torre de Controle", "Criar Monitoramento"]
         
         menu = st.radio("Navegação", opcoes)
         
@@ -134,8 +134,51 @@ def main_app():
         render_veiculos(user)
     elif menu == "Criar Monitoramento":
         render_ae_express(user)
+    elif menu == "🗺️ Torre de Controle":
+        render_torre_controle(user)
     elif menu == "Configurações":
         render_config(user)
+
+def render_torre_controle(user):
+    st.header("🗺️ Torre de Controle")
+    st.caption("Visão em tempo real das Viagens (AEs) Ativas da frota.")
+    
+    with st.spinner("Sincronizando coordenadas com o SIL..."):
+        viagens = services.listar_viagens_ativas_com_coordenadas(user['empresa_id'])
+        
+    if not viagens:
+        st.info("Nenhuma viagem ativa no momento.")
+        return
+        
+    import pandas as pd
+    
+    # Filtrar apenas as viagens que tem lat/lon válidos
+    v_map = [v for v in viagens if v.get('lat') and v.get('lon')]
+    
+    col1, col2 = st.columns([3, 1])
+    
+    with col2:
+        st.metric("Total Viagens Ativas", len(viagens))
+        st.metric("Rastreadores Comunicando", len(v_map))
+        if st.button("🔄 Atualizar Mapa", use_container_width=True):
+            services.listar_viagens_ativas_com_coordenadas.clear()
+            st.rerun()
+            
+    with col1:
+        if v_map:
+            df = pd.DataFrame(v_map)
+            st.map(df, size=150, color="#FF0000")
+        else:
+            st.warning("Não foi possível obter a geolocalização dos veículos.")
+
+    st.markdown("### 🚚 Resumo das Posições")
+    df_table = pd.DataFrame(viagens)
+    if not df_table.empty:
+        # Arrumar colunas para exibir
+        cols = ['cd_viagem', 'placa_cavalo', 'nome_mot_bd', 'origem', 'cidade_posicao', 'data_posicao']
+        df_exibir = df_table[[c for c in cols if c in df_table.columns]]
+        df_exibir.columns = ['AE', 'Placa', 'Motorista', 'Origem Prevista', 'Cidade Atual', 'Data Últ. Pos']
+        st.dataframe(df_exibir, use_container_width=True, hide_index=True)
 
 def render_dashboard(user):
     from datetime import datetime, timedelta

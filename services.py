@@ -2221,3 +2221,41 @@ def extrair_dados_texto(texto):
         dados['isca'] = match_isca.group(1).upper()
 
     return dados
+
+@st.cache_data(ttl=300, show_spinner=False)
+def listar_viagens_ativas_com_coordenadas(empresa_id):
+    """
+    Busca viagens ativas e consulta a coordenada no SIL.
+    Tem cache de 5 minutos (300s) para não sobrecarregar a API.
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT v.*, m.nome as nome_mot_bd 
+        FROM viagens v 
+        LEFT JOIN motoristas m ON v.cpf_motorista = m.cpf AND v.empresa_id = m.empresa_id
+        WHERE v.empresa_id = %s AND v.status LIKE '%Ativa%'
+    ''', (empresa_id,))
+    viagens_ativas = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+
+    resultado = []
+    for v in viagens_ativas:
+        placa = v['placa_cavalo']
+        coords = soap_client.consultar_coordenadas_veiculo(placa)
+        
+        v_dict = dict(v)
+        if coords:
+            v_dict['lat'] = coords['lat']
+            v_dict['lon'] = coords['lon']
+            v_dict['data_posicao'] = coords['data_posicao']
+            v_dict['referencia'] = coords['referencia']
+            v_dict['cidade_posicao'] = coords['cidade']
+        else:
+            v_dict['lat'] = None
+            v_dict['lon'] = None
+            
+        resultado.append(v_dict)
+        
+    return resultado
+
