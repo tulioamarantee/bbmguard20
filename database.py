@@ -161,6 +161,7 @@ def init_db():
             data_fim_suspensao TEXT,
             data_expiracao TEXT,
             empresa_id INTEGER,
+            data_criacao TEXT,
             UNIQUE(cpf, empresa_id),
             FOREIGN KEY (empresa_id) REFERENCES empresas (id)
         )
@@ -180,6 +181,7 @@ def init_db():
             empresa_id INTEGER,
             rastreadores TEXT,
             segundo_rastreador TEXT,
+            data_criacao TEXT,
             UNIQUE(placa, empresa_id),
             FOREIGN KEY (empresa_id) REFERENCES empresas (id)
         )
