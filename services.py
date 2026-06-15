@@ -855,15 +855,24 @@ def get_prontuario(motorista_id, empresa_id):
     conn.close()
     return motorista, ocorrencias, recentes
 
-def get_stats_dashboard(empresa_id):
+def get_stats_dashboard(empresa_id, dias_vencimento=0):
     """
-    Estatísticas focadas em Portaria: Ativos, Vencidos e Liberações do Dia.
+    Estatísticas focadas em Portaria: Ativos, Vencidos (ou a vencer) e Liberações do Dia.
     """
     conn = get_connection()
     cursor = conn.cursor()
     hoje_dt = datetime.now()
     hoje_str = hoje_dt.strftime("%Y-%m-%d")
     
+    # Se dias_vencimento > 0, queremos ver os que vencem nos próximos X dias.
+    # Ex: dias_vencimento=7 -> (vencem hoje + 7 dias)
+    if dias_vencimento > 0:
+        dt_limite = (hoje_dt + timedelta(days=dias_vencimento)).strftime("%Y-%m-%d")
+        condicao_vencimento = f"data_expiracao <= '{dt_limite}' AND data_expiracao >= '{hoje_str}'"
+    else:
+        # Padrão: já vencidos
+        condicao_vencimento = f"data_expiracao < '{hoje_str}'"
+
     # Consultas hoje (Total de pesquisas na portaria)
     cursor.execute("SELECT COUNT(*) FROM registros_acesso WHERE empresa_id = %s AND data_hora LIKE %s", (empresa_id, f"{hoje_str}%"))
     consultas_hoje = cursor.fetchone()[0]
@@ -876,12 +885,12 @@ def get_stats_dashboard(empresa_id):
     ''', (empresa_id, hoje_str))
     cadastros_ativos = cursor.fetchone()[0]
 
-    # Cadastros Vencidos (Status Interno Ativo mas Data Expiração < Hoje)
-    cursor.execute('''
+    # Cadastros Vencidos ou a Vencer (Status Interno Ativo)
+    cursor.execute(f'''
         SELECT COUNT(*) FROM motoristas 
         WHERE empresa_id = %s AND status_interno = 'Ativo' 
-        AND data_expiracao < %s AND data_expiracao != 'N/I'
-    ''', (empresa_id, hoje_str))
+        AND {condicao_vencimento} AND data_expiracao != 'N/I'
+    ''', (empresa_id,))
     cadastros_vencidos = cursor.fetchone()[0]
     
     # Liberações Hoje (Consultas que retornaram Validado ou Liberado hoje)
@@ -900,6 +909,71 @@ def get_stats_dashboard(empresa_id):
     }
     conn.close()
     return stats
+
+def get_aes_criadas_qtd(empresa_id, dias_filtro):
+    conn = get_connection()
+    cursor = conn.cursor()
+    if dias_filtro == 0:
+        # Hoje
+        hoje_str = datetime.now().strftime("%Y-%m-%d")
+        query = "SELECT COUNT(*) FROM viagens WHERE empresa_id = %s AND data_criacao LIKE %s"
+        cursor.execute(query, (empresa_id, f"{hoje_str}%"))
+    else:
+        dt_limite = (datetime.now() - timedelta(days=dias_filtro)).strftime("%Y-%m-%d 00:00:00")
+        query = "SELECT COUNT(*) FROM viagens WHERE empresa_id = %s AND data_criacao >= %s"
+        cursor.execute(query, (empresa_id, dt_limite))
+    qtd = cursor.fetchone()[0]
+    conn.close()
+    return qtd
+
+def get_cadastros_criados(empresa_id, dias_filtro):
+    conn = get_connection()
+    cursor = conn.cursor()
+    if dias_filtro == 0:
+        dt_limite = datetime.now().strftime("%Y-%m-%d")
+        like_filter = True
+    else:
+        dt_limite = (datetime.now() - timedelta(days=dias_filtro)).strftime("%Y-%m-%d 00:00:00")
+        like_filter = False
+
+    qtd = 0
+    for tabela in ['motoristas', 'veiculos']:
+        if like_filter:
+            cursor.execute(f"SELECT COUNT(*) FROM {tabela} WHERE empresa_id = %s AND data_criacao LIKE %s", (empresa_id, f"{dt_limite}%"))
+        else:
+            cursor.execute(f"SELECT COUNT(*) FROM {tabela} WHERE empresa_id = %s AND data_criacao >= %s", (empresa_id, dt_limite))
+        qtd += cursor.fetchone()[0]
+        
+    conn.close()
+    return qtd
+
+def get_aes_por_usuario(empresa_id, dias_filtro):
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    params = [empresa_id]
+    where_clause = ""
+    if dias_filtro == 0:
+        hoje_str = datetime.now().strftime("%Y-%m-%d")
+        where_clause = "AND v.data_criacao LIKE %s"
+        params.append(f"{hoje_str}%")
+    else:
+        dt_limite = (datetime.now() - timedelta(days=dias_filtro)).strftime("%Y-%m-%d 00:00:00")
+        where_clause = "AND v.data_criacao >= %s"
+        params.append(dt_limite)
+        
+    query = f'''
+        SELECT u.nome, COUNT(v.id) as total_aes
+        FROM viagens v
+        JOIN usuarios u ON v.usuario_id = u.id
+        WHERE v.empresa_id = %s {where_clause}
+        GROUP BY u.nome
+        ORDER BY total_aes DESC
+    '''
+    cursor.execute(query, params)
+    rows = cursor.fetchall()
+    conn.close()
+    return [{'Usuario': r[0], 'AEs Criadas': r[1]} for r in rows]
 
 def registrar_consulta_portaria(motorista_id, cpf, status, usuario_id, empresa_id):
     """

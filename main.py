@@ -117,25 +117,72 @@ def main_app():
         render_config(user)
 
 def render_dashboard(user):
-    stats = services.get_stats_dashboard(user['empresa_id'])
+    from datetime import datetime
+    st.subheader("📊 Painel Gerencial")
     
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Cadastros Ativos", stats['cadastros_ativos'])
-    col2.metric("Cadastros Vencidos", stats['cadastros_vencidos'], delta_color="inverse")
-    col3.metric("Liberações Hoje", stats['liberacoes_hoje'])
+    with st.expander("⚙️ Filtros do Dashboard", expanded=True):
+        col_f1, col_f2 = st.columns(2)
+        with col_f1:
+            filtro_periodo = st.selectbox(
+                "Período de Análise",
+                ["Hoje", "Últimos 7 dias", "Últimos 15 dias", "Últimos 30 dias", "Mês Atual"],
+                index=1
+            )
+        with col_f2:
+            filtro_venc = st.selectbox(
+                "Vencimento de Cadastros",
+                ["Já Vencidos", "Vencendo em 7 dias", "Vencendo em 15 dias", "Vencendo em 30 dias"],
+                index=0
+            )
+
+    dias_filtro = 0
+    if "7 dias" in filtro_periodo: dias_filtro = 7
+    elif "15 dias" in filtro_periodo: dias_filtro = 15
+    elif "30 dias" in filtro_periodo: dias_filtro = 30
+    elif "Mês Atual" in filtro_periodo: dias_filtro = datetime.now().day - 1 # Approximation for days passed in current month
+
+    dias_venc = 0
+    if "7 dias" in filtro_venc: dias_venc = 7
+    elif "15 dias" in filtro_venc: dias_venc = 15
+    elif "30 dias" in filtro_venc: dias_venc = 30
+
+    stats = services.get_stats_dashboard(user['empresa_id'], dias_venc)
+    qtd_aes = services.get_aes_criadas_qtd(user['empresa_id'], dias_filtro)
+    qtd_cadastros = services.get_cadastros_criados(user['empresa_id'], dias_filtro)
+    
+    st.markdown("### 📈 Indicadores Principais")
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("AEs Criadas", qtd_aes, f"{filtro_periodo}")
+    col2.metric("Novos Cadastros", qtd_cadastros, f"{filtro_periodo}")
+    col3.metric("Cadastros a Vencer", stats['cadastros_vencidos'], f"{filtro_venc}", delta_color="inverse")
+    col4.metric("Liberações Portaria", stats['liberacoes_hoje'], "Hoje apenas")
     
     st.markdown("---")
-    st.subheader("📍 Últimas Consultas na Portaria")
-    historico = services.listar_historico_acessos(user['empresa_id'])
     
-    if historico:
-        import pandas as pd
-        df_hist = pd.DataFrame(historico)
-        df_hist = df_hist[['data_hora', 'cpf', 'motorista_nome', 'status_resultado']]
-        df_hist.columns = ['Data/Hora', 'CPF', 'Motorista', 'Status SIL']
-        st.dataframe(df_hist, use_container_width=True, hide_index=True)
-    else:
-        st.info("Nenhuma consulta registrada hoje.")
+    col_graf, col_tab = st.columns([1.6, 1])
+    
+    with col_graf:
+        st.subheader("🏆 Produtividade (AEs por Login)")
+        aes_usuario = services.get_aes_por_usuario(user['empresa_id'], dias_filtro)
+        if aes_usuario:
+            import pandas as pd
+            df_aes = pd.DataFrame(aes_usuario)
+            st.bar_chart(df_aes.set_index("Usuario")["AEs Criadas"], color="#003366")
+        else:
+            st.info("Nenhuma AE gerada no período selecionado.")
+            
+    with col_tab:
+        st.subheader("📍 Últimas Consultas")
+        historico = services.listar_historico_acessos(user['empresa_id'])
+        if historico:
+            import pandas as pd
+            df_hist = pd.DataFrame(historico)
+            df_hist = df_hist[['data_hora', 'cpf', 'status_resultado']]
+            df_hist.columns = ['Hora', 'CPF', 'Status']
+            df_hist['Hora'] = df_hist['Hora'].apply(lambda x: x.split()[-1][:5] if isinstance(x, str) else x)
+            st.dataframe(df_hist.head(8), use_container_width=True, hide_index=True)
+        else:
+            st.info("Nenhuma consulta registrada hoje.")
 
 def render_config(user):
     st.header("⚙️ Configurações")

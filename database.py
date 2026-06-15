@@ -99,6 +99,7 @@ class ConnWrapper:
             self.conn.close()
 
 import streamlit as st
+from datetime import datetime
 
 @st.cache_resource
 def init_db():
@@ -285,6 +286,11 @@ def init_db():
     
     add_col_if_needed('veiculos', 'rastreadores', 'TEXT')
     add_col_if_needed('veiculos', 'segundo_rastreador', 'TEXT')
+    
+    # Novas colunas para Dashboard analítico
+    hoje_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    add_col_if_needed('motoristas', 'data_criacao', f"TEXT DEFAULT '{hoje_str}'")
+    add_col_if_needed('veiculos', 'data_criacao', f"TEXT DEFAULT '{hoje_str}'")
     
     conn.close()
 
