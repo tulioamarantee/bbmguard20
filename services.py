@@ -2192,8 +2192,8 @@ def extrair_dados_texto(texto):
         return dados
         
     # Extrair CPF (formato numérico com ou sem pontuação)
-    # Busca 11 dígitos juntos ou separados no padrão de CPF (3.3.3-2)
-    match_cpf = re.search(r'(?<!\d)\d{3}[.\s]?\d{3}[.\s]?\d{3}[-\s]?\d{2}(?!\d)', texto)
+    # Busca pela palavra CPF seguida do número
+    match_cpf = re.search(r'(?i)cpf[^\d]*([0-9]{3}[.\s]?[0-9]{3}[.\s]?[0-9]{3}[-\s]?[0-9]{2})', texto)
     if match_cpf:
         cpf_limpo = ''.join(filter(str.isdigit, match_cpf.group()))
         if len(cpf_limpo) == 11:
