@@ -887,7 +887,7 @@ def get_stats_dashboard(empresa_id):
     # Liberações Hoje (Consultas que retornaram Validado ou Liberado hoje)
     cursor.execute('''
         SELECT COUNT(*) FROM registros_acesso 
-        WHERE empresa_id = %s AND (status_resultado LIKE '%Validado%' OR status_resultado LIKE '%Liberado%')
+        WHERE empresa_id = %s AND (status_resultado LIKE '%%Validado%%' OR status_resultado LIKE '%%Liberado%%')
         AND data_hora LIKE %s
     ''', (empresa_id, f"{hoje_str}%"))
     liberacoes_hoje = cursor.fetchone()[0]
