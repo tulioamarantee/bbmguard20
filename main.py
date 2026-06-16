@@ -1414,37 +1414,7 @@ def render_form_criar_ae(user):
                     else:
                         st.error(msg)
 
-    # ── Download PDF da última AE criada ──
-    if "ae_ultimo_cd_viagem" in st.session_state and st.session_state.ae_ultimo_cd_viagem:
-        cd_v = st.session_state.ae_ultimo_cd_viagem
-        st.markdown(f"""<div style='background:linear-gradient(135deg,#1B4332,#2D6A4F);
-            padding:16px 20px; border-radius:8px; border-left:6px solid #4CAF50; margin-top:16px; margin-bottom:16px;'>
-            <span style='color:#D8F3DC;font-size:13px;font-weight:bold;letter-spacing:1px;'>✅ AE CRIADA COM SUCESSO</span><br>
-            <span style='color:white;font-weight:bold;font-size:18px;'>AE #{cd_v} — Pronta para download</span>
-        </div>""", unsafe_allow_html=True)
-        col_dl, col_cl = st.columns([3, 1])
-        with col_dl:
-            if st.button("📄 Gerar PDF da AE", key="btn_pdf_ae_topo", use_container_width=True, type="primary"):
-                with st.spinner("Gerando PDF..."):
-                    pdf_bytes = services.gerar_pdf_ae(
-                        cd_v, st.session_state.get("ae_ultimo_dados", {})
-                    )
-                if pdf_bytes:
-                    st.download_button(
-                        label=f"⬇️ Baixar AE #{cd_v}.pdf",
-                        data=pdf_bytes,
-                        file_name=f"AE_{cd_v}_BBMRisk.pdf",
-                        mime="application/pdf",
-                        use_container_width=True,
-                        key="dl_pdf_ae_topo"
-                    )
-                else:
-                    st.error("❌ Não foi possível gerar o PDF. Tente novamente.")
-        with col_cl:
-            if st.button("✖ Fechar", key="btn_fechar_pdf_banner", use_container_width=True):
-                del st.session_state.ae_ultimo_cd_viagem
-                del st.session_state.ae_ultimo_dados
-                st.rerun()
+
 
 def render_ae_express(user):
     import services
@@ -1512,6 +1482,38 @@ def render_ae_express(user):
             st.subheader("➕ Novo Monitoramento")
             render_form_criar_ae(user)
             st.divider()
+
+    # ── Download PDF da última AE criada ──
+    if "ae_ultimo_cd_viagem" in st.session_state and st.session_state.ae_ultimo_cd_viagem:
+        cd_v = st.session_state.ae_ultimo_cd_viagem
+        st.markdown(f"""<div style='background:linear-gradient(135deg,#1B4332,#2D6A4F);
+            padding:16px 20px; border-radius:8px; border-left:6px solid #4CAF50; margin-top:16px; margin-bottom:16px;'>
+            <span style='color:#D8F3DC;font-size:13px;font-weight:bold;letter-spacing:1px;'>✅ AE CRIADA COM SUCESSO</span><br>
+            <span style='color:white;font-weight:bold;font-size:18px;'>AE #{cd_v} — Pronta para download</span>
+        </div>""", unsafe_allow_html=True)
+        col_dl, col_cl = st.columns([3, 1])
+        with col_dl:
+            if st.button("📄 Gerar PDF da AE", key="btn_pdf_ae_topo", use_container_width=True, type="primary"):
+                with st.spinner("Gerando PDF..."):
+                    pdf_bytes = services.gerar_pdf_ae(
+                        cd_v, st.session_state.get("ae_ultimo_dados", {})
+                    )
+                if pdf_bytes:
+                    st.download_button(
+                        label=f"⬇️ Baixar AE #{cd_v}.pdf",
+                        data=pdf_bytes,
+                        file_name=f"AE_{cd_v}_BBMRisk.pdf",
+                        mime="application/pdf",
+                        use_container_width=True,
+                        key="dl_pdf_ae_topo"
+                    )
+                else:
+                    st.error("❌ Não foi possível gerar o PDF. Tente novamente.")
+        with col_cl:
+            if st.button("✖ Fechar", key="btn_fechar_pdf_banner", use_container_width=True):
+                del st.session_state.ae_ultimo_cd_viagem
+                del st.session_state.ae_ultimo_dados
+                st.rerun()
 
     busca_ae = st.text_input("🔎 Filtrar por CPF, Placa, Isca ou Cód. Viagem")
 
