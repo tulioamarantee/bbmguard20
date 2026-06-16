@@ -82,15 +82,20 @@ def main_app():
         # Definir opções de navegação
         role = (user.get('role') or '').lower()
         if role == 'portaria':
-            opcoes = ["Controle de Portaria", "Controle de Mapa", "Criar Monitoramento"]
+            opcoes = ["Home", "Cadastro e Consulta", "Solicitação de Monitoramento"]
         elif role == 'supervisor':
-            opcoes = ["Controle de Portaria", "Controle de Mapa", "🗺️ Torre de Controle", "Criar Monitoramento", "Configurações"]
+            opcoes = ["Home", "Cadastro e Consulta", "Solicitação de Monitoramento", "Torre de Controle", "Configurações"]
         elif role.startswith('admin'):
-            opcoes = ["Dashboard", "Controle de Portaria", "Controle de Mapa", "🗺️ Torre de Controle", "Criar Monitoramento", "Configurações"]
+            opcoes = ["Home", "Cadastro e Consulta", "Solicitação de Monitoramento", "Torre de Controle", "Dashboard", "Configurações"]
         else:
-            opcoes = ["Controle de Portaria", "Controle de Mapa", "🗺️ Torre de Controle", "Criar Monitoramento"]
+            opcoes = ["Home", "Cadastro e Consulta", "Solicitação de Monitoramento", "Torre de Controle"]
+            
+        if "current_menu" not in st.session_state:
+            st.session_state.current_menu = "Home"
+        if st.session_state.current_menu not in opcoes:
+            st.session_state.current_menu = "Home"
         
-        menu = st.radio("Navegação", opcoes)
+        menu = st.radio("Navegação", opcoes, key="current_menu")
         
         st.divider()
         if st.button("Sair"):
@@ -123,21 +128,75 @@ def main_app():
     st.divider()
 
     # --- TELAS ---
-    if menu == "Dashboard":
+    if menu == "Home":
+        render_home(user)
+    elif menu == "Cadastro e Consulta":
+        render_cadastro_consulta(user)
+    elif menu == "Solicitação de Monitoramento":
+        render_ae_express(user)
+    elif menu == "Torre de Controle":
+        render_torre_controle(user)
+    elif menu == "Dashboard":
         if (user.get('role') or '').lower() == 'portaria':
             st.warning("⚠️ Acesso ao Dashboard não permitido para o usuário da Portaria.")
         else:
             render_dashboard(user)
-    elif menu == "Controle de Portaria":
-        render_motoristas(user)
-    elif menu == "Controle de Mapa":
-        render_veiculos(user)
-    elif menu == "Criar Monitoramento":
-        render_ae_express(user)
-    elif menu == "🗺️ Torre de Controle":
-        render_torre_controle(user)
     elif menu == "Configurações":
         render_config(user)
+
+def render_home(user):
+    st.markdown("<h2 style='text-align: center; margin-bottom: 30px;'>Bem-vindo(a) ao BBM RISK</h2>", unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown("""
+        <div style="background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)); padding: 30px; border-radius: 15px; text-align: center; color: white; height: 180px; display: flex; flex-direction: column; justify-content: center; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 10px;">
+            <h3 style="margin: 0; font-size: 2.5rem;">📋</h3>
+            <h4 style="margin: 10px 0 0 0; font-size: 1.1rem; text-transform: uppercase;">Cadastro e Consulta</h4>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("Acessar Módulo", key="btn_cadastro", use_container_width=True):
+            st.session_state.current_menu = "Cadastro e Consulta"
+            st.rerun()
+            
+    with col2:
+        st.markdown("""
+        <div style="background: linear-gradient(135deg, #1e3c72, #2a5298); padding: 30px; border-radius: 15px; text-align: center; color: white; height: 180px; display: flex; flex-direction: column; justify-content: center; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 10px;">
+            <h3 style="margin: 0; font-size: 2.5rem;">📝</h3>
+            <h4 style="margin: 10px 0 0 0; font-size: 1.1rem; text-transform: uppercase;">Solicitação de Monitoramento</h4>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("Acessar Módulo", key="btn_monitoramento", use_container_width=True):
+            st.session_state.current_menu = "Solicitação de Monitoramento"
+            st.rerun()
+            
+    with col3:
+        st.markdown("""
+        <div style="background: linear-gradient(135deg, #ff416c, #ff4b2b); padding: 30px; border-radius: 15px; text-align: center; color: white; height: 180px; display: flex; flex-direction: column; justify-content: center; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 10px;">
+            <h3 style="margin: 0; font-size: 2.5rem;">🗺️</h3>
+            <h4 style="margin: 10px 0 0 0; font-size: 1.1rem; text-transform: uppercase;">Torre de Controle</h4>
+        </div>
+        """, unsafe_allow_html=True)
+        role = (user.get('role') or '').lower()
+        if role == 'portaria':
+            st.button("Acesso Restrito", key="btn_torre", use_container_width=True, disabled=True)
+        else:
+            if st.button("Acessar Módulo", key="btn_torre", use_container_width=True):
+                st.session_state.current_menu = "Torre de Controle"
+                st.rerun()
+
+def render_cadastro_consulta(user):
+    st.header("📋 Cadastro e Consulta")
+    st.caption("Gerenciamento integrado de Motoristas e Veículos.")
+    
+    tab1, tab2 = st.tabs(["🚦 Portaria (Motoristas)", "🚚 Mapa (Veículos)"])
+    
+    with tab1:
+        render_motoristas(user)
+    
+    with tab2:
+        render_veiculos(user)
 
 def render_torre_controle(user, fullscreen=False):
     if not fullscreen:
