@@ -314,8 +314,24 @@ def render_torre_controle(user, fullscreen=False):
             for v in v_map:
                 popup_text = f"<b>AE:</b> {v.get('cd_viagem')}<br><b>Placa:</b> {v.get('placa_cavalo')}<br><b>Motorista:</b> {v.get('nome_mot_bd')}"
                 
-                # Para ter o "caminhão azul", usamos o ícone do FontAwesome
-                icon = folium.Icon(color='blue', icon='truck', prefix='fa')
+                # Definir a cor do caminhãozinho
+                cor_icone = 'blue'
+                data_pos = v.get('data_posicao')
+                if data_pos:
+                    try:
+                        dt_pos = datetime.fromisoformat(data_pos)
+                        now_dt = datetime.now(dt_pos.tzinfo)
+                        diff_seconds = (now_dt - dt_pos).total_seconds()
+                        if 600 < diff_seconds <= 1800:
+                            cor_icone = 'orange'
+                        elif diff_seconds > 1800:
+                            cor_icone = 'red'
+                    except:
+                        cor_icone = 'red'
+                else:
+                    cor_icone = 'red'
+                
+                icon = folium.Icon(color=cor_icone, icon='truck', prefix='fa')
                 
                 folium.Marker(
                     [float(v['lat']), float(v['lon'])],
