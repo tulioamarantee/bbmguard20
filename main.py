@@ -127,6 +127,14 @@ def main_app():
     styles.render_header(user)
     st.divider()
 
+    def set_menu(menu_name):
+        st.session_state.current_menu = menu_name
+
+    if menu != "Home":
+        if st.button("🔙 Voltar para a Home", key="btn_voltar_home"):
+            set_menu("Home")
+            st.rerun()
+
     # --- TELAS ---
     if menu == "Home":
         render_home(user)
@@ -198,23 +206,17 @@ def render_home(user):
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        if st.button("📋\n\nCADASTRO E\nCONSULTA", key="btn_cadastro", use_container_width=True):
-            st.session_state.current_menu = "Cadastro e Consulta"
-            st.rerun()
+        st.button("📋\n\nCADASTRO E\nCONSULTA", key="btn_cadastro", use_container_width=True, on_click=set_menu, args=("Cadastro e Consulta",))
             
     with col2:
-        if st.button("📝\n\nSOLICITAÇÃO DE\nMONITORAMENTO", key="btn_monitoramento", use_container_width=True):
-            st.session_state.current_menu = "Solicitação de Monitoramento"
-            st.rerun()
+        st.button("📝\n\nSOLICITAÇÃO DE\nMONITORAMENTO", key="btn_monitoramento", use_container_width=True, on_click=set_menu, args=("Solicitação de Monitoramento",))
             
     with col3:
         role = (user.get('role') or '').lower()
         if role == 'portaria':
             st.button("🗺️\n\nTORRE DE CONTROLE\n(Acesso Restrito)", key="btn_torre", use_container_width=True, disabled=True)
         else:
-            if st.button("🗺️\n\nTORRE DE CONTROLE", key="btn_torre", use_container_width=True):
-                st.session_state.current_menu = "Torre de Controle"
-                st.rerun()
+            st.button("🗺️\n\nTORRE DE CONTROLE", key="btn_torre", use_container_width=True, on_click=set_menu, args=("Torre de Controle",))
 
 def render_cadastro_consulta(user):
     st.header("📋 Cadastro e Consulta")
