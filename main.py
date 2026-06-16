@@ -262,19 +262,23 @@ def render_torre_controle(user, fullscreen=False):
     v_andamento = [v for v in viagens if 'ANDAMENTO' in v.get('situacao', '')]
     v_novas = [v for v in viagens if 'NOVA' in v.get('situacao', '')]
     
-    v_sem_sinal = []
+    v_sem_sinal_amarelo = []
+    v_sem_sinal_vermelho = []
     for v in v_andamento:
         data_pos = v.get('data_posicao')
         if data_pos:
             try:
                 dt_pos = datetime.fromisoformat(data_pos)
                 now_dt = datetime.now(dt_pos.tzinfo)
-                if (now_dt - dt_pos).total_seconds() > 600:
-                    v_sem_sinal.append(v)
+                diff_seconds = (now_dt - dt_pos).total_seconds()
+                if 600 < diff_seconds <= 1800:
+                    v_sem_sinal_amarelo.append(v)
+                elif diff_seconds > 1800:
+                    v_sem_sinal_vermelho.append(v)
             except:
-                v_sem_sinal.append(v)
+                v_sem_sinal_vermelho.append(v)
         else:
-            v_sem_sinal.append(v)
+            v_sem_sinal_vermelho.append(v)
 
     # Filtrar apenas as viagens em andamento que tem lat/lon válidos para o mapa
     v_map = [v for v in v_andamento if v.get('lat') and v.get('lon')]
@@ -284,7 +288,8 @@ def render_torre_controle(user, fullscreen=False):
     with col2:
         st.metric("🚀 Em Andamento", len(v_andamento))
         st.metric("🆕 Viagens Novas", len(v_novas))
-        st.metric("⚠️ Sem Sinal (>10m)", len(v_sem_sinal))
+        st.metric("🟡 Sem Sinal (10 a 30m)", len(v_sem_sinal_amarelo))
+        st.metric("🔴 Sem Sinal (>30m)", len(v_sem_sinal_vermelho))
         
         st.divider()
         if st.button("🔄 Atualizar Mapa", use_container_width=True):
