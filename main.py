@@ -69,6 +69,9 @@ def login_screen():
                 else:
                     st.error("Credenciais inválidas.")
 
+def set_menu(menu_name):
+    st.session_state.current_menu = menu_name
+
 def main_app():
     user = st.session_state.usuario
     styles.apply_custom_branding(user)
@@ -126,9 +129,6 @@ def main_app():
     # Título da Página
     styles.render_header(user)
     st.divider()
-
-    def set_menu(menu_name):
-        st.session_state.current_menu = menu_name
 
     if menu != "Home":
         if st.button("🔙 Voltar para a Home", key="btn_voltar_home"):
