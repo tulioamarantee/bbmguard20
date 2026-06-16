@@ -304,70 +304,70 @@ def render_home(user):
     torre_href = "#" if role == 'portaria' else "/?menu=Torre+de+Controle"
 
     html_cards = f"""
-    <div class="home-container">
-        <h1 class="home-title">Controle & Visibilidade<br>em tempo real</h1>
-        <p class="home-subtitle">Construa sua operação. Rastreie no mapa. Ganhe eficiência.<br>Tudo dentro do BBM Risk.</p>
+<div class="home-container">
+    <h1 class="home-title">Controle & Visibilidade<br>em tempo real</h1>
+    <p class="home-subtitle">Construa sua operação. Rastreie no mapa. Ganhe eficiência.<br>Tudo dentro do BBM Risk.</p>
+    
+    <div class="cards-wrapper">
+        <!-- Card Cadastro -->
+        <a href="/?menu=Cadastro+e+Consulta" target="_self" class="module-card">
+            <div class="card-title">📋 Portaria e Consulta</div>
+            <div class="card-desc">Gerenciamento ágil e integrado de motoristas e veículos no momento de acesso à base.</div>
+            <div class="card-footer">
+                <span>Acessar Módulo</span>
+                <span class="card-arrow">→</span>
+            </div>
+        </a>
         
-        <div class="cards-wrapper">
-            <!-- Card Cadastro -->
-            <a href="/?menu=Cadastro+e+Consulta" target="_self" class="module-card">
-                <div class="card-title">📋 Portaria e Consulta</div>
-                <div class="card-desc">Gerenciamento ágil e integrado de motoristas e veículos no momento de acesso à base.</div>
-                <div class="card-footer">
-                    <span>Acessar Módulo</span>
-                    <span class="card-arrow">→</span>
-                </div>
-            </a>
-            
-            <!-- Card Solicitação -->
-            <a href="/?menu=Solicitação+de+Monitoramento" target="_self" class="module-card">
-                <div class="card-title">📝 Monitoramento <span class="tag-new">NOVO</span></div>
-                <div class="card-desc">Crie solicitações de espelhamento e rastreamento em segundos. Agilize o contato com a GR.</div>
-                <div class="card-footer">
-                    <span>Acessar Módulo</span>
-                    <span class="card-arrow">→</span>
-                </div>
-            </a>
-            
-            <!-- Card Torre -->
-            <a href="{torre_href}" target="_self" class="module-card {torre_disabled}">
-                <div class="card-title">🗺️ Torre de Controle</div>
-                <div class="card-desc">Tenha a visibilidade total da sua frota em um mapa dinâmico com alertas inteligentes instantâneos.</div>
-                <div class="card-footer">
-                    <span>Acessar Módulo</span>
-                    <span class="card-arrow">→</span>
-                </div>
-            </a>
-        </div>
-    """
+        <!-- Card Solicitação -->
+        <a href="/?menu=Solicitação+de+Monitoramento" target="_self" class="module-card">
+            <div class="card-title">📝 Monitoramento <span class="tag-new">NOVO</span></div>
+            <div class="card-desc">Crie solicitações de espelhamento e rastreamento em segundos. Agilize o contato com a GR.</div>
+            <div class="card-footer">
+                <span>Acessar Módulo</span>
+                <span class="card-arrow">→</span>
+            </div>
+        </a>
+        
+        <!-- Card Torre -->
+        <a href="{torre_href}" target="_self" class="module-card {torre_disabled}">
+            <div class="card-title">🗺️ Torre de Controle</div>
+            <div class="card-desc">Tenha a visibilidade total da sua frota em um mapa dinâmico com alertas inteligentes instantâneos.</div>
+            <div class="card-footer">
+                <span>Acessar Módulo</span>
+                <span class="card-arrow">→</span>
+            </div>
+        </a>
+    </div>
+"""
 
     if is_admin:
         html_cards += f"""
-        <h3 style="text-align: left; margin-top: 2rem; margin-bottom: 1.5rem; font-family: 'Inter', sans-serif; font-size: 1.5rem;">Módulos Gerenciais</h3>
-        <div class="cards-wrapper" style="justify-content: flex-start;">
-        """
+<h3 style="text-align: left; margin-top: 2rem; margin-bottom: 1.5rem; font-family: 'Inter', sans-serif; font-size: 1.5rem;">Módulos Gerenciais</h3>
+<div class="cards-wrapper" style="justify-content: flex-start;">
+"""
         if role.startswith('admin'):
             html_cards += """
-            <a href="/?menu=Dashboard" target="_self" class="module-card" style="width: 31%; min-width: 280px;">
-                <div class="card-title">📊 Dashboard <span class="tag-admin">ADMIN</span></div>
-                <div class="card-desc">Métricas gerenciais completas de tempo em viagem, veículos disponíveis e pendentes.</div>
-                <div class="card-footer">
-                    <span>Visualizar Painel</span>
-                    <span class="card-arrow">→</span>
-                </div>
-            </a>
-            """
-        html_cards += """
-            <a href="/?menu=Configurações" target="_self" class="module-card" style="width: 31%; min-width: 280px;">
-                <div class="card-title">⚙️ Configurações</div>
-                <div class="card-desc">Gerencie usuários, permissões, parâmetros da filial e conexões com sistemas externos.</div>
-                <div class="card-footer">
-                    <span>Gerenciar</span>
-                    <span class="card-arrow">→</span>
-                </div>
-            </a>
+    <a href="/?menu=Dashboard" target="_self" class="module-card" style="width: 31%; min-width: 280px;">
+        <div class="card-title">📊 Dashboard <span class="tag-admin">ADMIN</span></div>
+        <div class="card-desc">Métricas gerenciais completas de tempo em viagem, veículos disponíveis e pendentes.</div>
+        <div class="card-footer">
+            <span>Visualizar Painel</span>
+            <span class="card-arrow">→</span>
         </div>
-        """
+    </a>
+"""
+        html_cards += """
+    <a href="/?menu=Configurações" target="_self" class="module-card" style="width: 31%; min-width: 280px;">
+        <div class="card-title">⚙️ Configurações</div>
+        <div class="card-desc">Gerencie usuários, permissões, parâmetros da filial e conexões com sistemas externos.</div>
+        <div class="card-footer">
+            <span>Gerenciar</span>
+            <span class="card-arrow">→</span>
+        </div>
+    </a>
+</div>
+"""
         
     html_cards += "</div>"
     
