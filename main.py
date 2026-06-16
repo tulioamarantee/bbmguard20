@@ -88,6 +88,12 @@ def main_app():
         if "current_menu" not in st.session_state:
             st.session_state.current_menu = "Home"
             
+        # Captura parâmetro da URL para roteamento via links HTML dos cards
+        qp = st.query_params
+        if "menu" in qp:
+            st.session_state.current_menu = qp["menu"]
+            st.query_params.clear()
+            
         menu = st.session_state.current_menu
         
         st.divider()
@@ -149,75 +155,223 @@ def render_home(user):
     [data-testid="stSidebar"] { display: none !important; }
     [data-testid="collapsedControl"] { display: none !important; }
     
-    /* Estilizar APENAS os botões da Home para parecerem cards */
-    .stApp div.stButton > button {
-        height: 200px !important;
-        border-radius: 15px !important;
-        border: none !important;
-        color: white !important;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1) !important;
-        transition: transform 0.2s, box-shadow 0.2s !important;
-    }
-    .stApp div.stButton > button:hover {
-        transform: translateY(-5px) !important;
-        box-shadow: 0 8px 25px rgba(0,0,0,0.2) !important;
-        border: none !important;
-        color: white !important;
-    }
-    .stApp div.stButton > button p {
-        font-size: 1.3rem !important;
-        font-weight: bold !important;
-        text-transform: uppercase !important;
-        white-space: pre-wrap !important;
+    .home-container {
+        padding: 2rem 0;
+        text-align: center;
+        animation: fadeIn 0.8s ease-out;
     }
     
-    /* Aplicar degradês por ordem das colunas */
-    div[data-testid="column"]:nth-child(1) div.stButton > button {
-        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)) !important;
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
     }
-    div[data-testid="column"]:nth-child(2) div.stButton > button {
-        background: linear-gradient(135deg, #1e3c72, #2a5298) !important;
+    
+    .home-title {
+        font-size: 3.8rem !important;
+        font-weight: 800 !important;
+        line-height: 1.1 !important;
+        letter-spacing: -0.04em !important;
+        color: var(--text-color) !important;
+        margin-bottom: 1rem !important;
+        font-family: 'Inter', 'Segoe UI', sans-serif !important;
     }
-    div[data-testid="column"]:nth-child(3) div.stButton > button {
-        background: linear-gradient(135deg, #ff416c, #ff4b2b) !important;
+    
+    .home-subtitle {
+        font-size: 1.25rem;
+        color: #666;
+        margin-bottom: 4rem;
+        font-weight: 400;
+        line-height: 1.6;
     }
-    /* Estilo para botão desabilitado */
-    div[data-testid="column"]:nth-child(3) div.stButton > button:disabled {
-        background: #cccccc !important;
-        color: #666666 !important;
-        transform: none !important;
-        box-shadow: none !important;
+    
+    .cards-wrapper {
+        display: flex;
+        gap: 1.5rem;
+        justify-content: center;
+        flex-wrap: wrap;
+        margin-bottom: 3rem;
+    }
+    
+    .module-card {
+        background: #fdfdfd;
+        border-radius: 16px;
+        padding: 2rem;
+        width: 31%;
+        min-width: 280px;
+        text-align: left;
+        text-decoration: none !important;
+        color: var(--text-color) !important;
+        position: relative;
+        overflow: hidden;
+        transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+        border: 1px solid #eaeaea;
+        display: flex;
+        flex-direction: column;
+        cursor: pointer;
+    }
+    
+    .module-card.disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        pointer-events: none;
+        filter: grayscale(100%);
+    }
+    
+    @media (prefers-color-scheme: dark) {
+        .module-card { background: #1a1c23; border-color: #2d303e; }
+        .home-subtitle { color: #a0aab2; }
+    }
+    
+    .module-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 30px rgba(0,0,0,0.1);
+        border-color: #d0d0d0;
+    }
+    
+    .card-title {
+        font-size: 1.4rem;
+        font-weight: 700;
+        margin-bottom: 0.8rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .card-desc {
+        font-size: 0.95rem;
+        color: #777;
+        line-height: 1.5;
+        margin-bottom: 2rem;
+        flex-grow: 1;
+    }
+    
+    .card-footer {
+        margin-top: auto;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-weight: 600;
+        font-size: 0.95rem;
+        color: var(--primary-color);
+        transition: color 0.3s ease;
+    }
+    
+    .card-arrow {
+        background: var(--primary-color);
+        color: white;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s ease;
+        opacity: 0.8;
+    }
+    
+    .module-card:hover .card-arrow {
+        transform: translateX(5px);
+        opacity: 1;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    }
+    
+    .tag-new {
+        background: #e3f2fd;
+        color: #0d47a1;
+        font-size: 0.65rem;
+        padding: 3px 8px;
+        border-radius: 12px;
+        font-weight: 800;
+        letter-spacing: 0.5px;
+    }
+    
+    .tag-admin {
+        background: #fce4ec;
+        color: #880e4f;
+        font-size: 0.65rem;
+        padding: 3px 8px;
+        border-radius: 12px;
+        font-weight: 800;
+        letter-spacing: 0.5px;
     }
     </style>
     """, unsafe_allow_html=True)
 
-    st.markdown("<h2 style='text-align: center; margin-bottom: 50px;'>Bem-vindo(a) ao BBM RISK</h2>", unsafe_allow_html=True)
-    
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.button("📋\n\nCADASTRO E\nCONSULTA", key="btn_cadastro", use_container_width=True, on_click=set_menu, args=("Cadastro e Consulta",))
-            
-    with col2:
-        st.button("📝\n\nSOLICITAÇÃO DE\nMONITORAMENTO", key="btn_monitoramento", use_container_width=True, on_click=set_menu, args=("Solicitação de Monitoramento",))
-            
-    with col3:
-        role = (user.get('role') or '').lower()
-        if role == 'portaria':
-            st.button("🗺️\n\nTORRE DE CONTROLE\n(Acesso Restrito)", key="btn_torre", use_container_width=True, disabled=True)
-        else:
-            st.button("🗺️\n\nTORRE DE CONTROLE", key="btn_torre", use_container_width=True, on_click=set_menu, args=("Torre de Controle",))
-            
-    # Linha extra para Admins/Supervisores (Dashboard e Configurações)
     role = (user.get('role') or '').lower()
-    if role in ['admin', 'admin_ti', 'supervisor']:
-        st.markdown("<h3 style='text-align: center; margin-top: 40px; margin-bottom: 20px;'>Módulos Gerenciais</h3>", unsafe_allow_html=True)
-        col4, col5, col6 = st.columns(3)
-        with col4:
-            if role.startswith('admin'):
-                st.button("📊\n\nDASHBOARD", key="btn_dash", use_container_width=True, on_click=set_menu, args=("Dashboard",))
-        with col5:
-            st.button("⚙️\n\nCONFIGURAÇÕES", key="btn_config", use_container_width=True, on_click=set_menu, args=("Configurações",))
+    is_admin = role in ['admin', 'admin_ti', 'supervisor']
+    torre_disabled = "disabled" if role == 'portaria' else ""
+    torre_href = "#" if role == 'portaria' else "/?menu=Torre+de+Controle"
+
+    html_cards = f"""
+    <div class="home-container">
+        <h1 class="home-title">Controle & Visibilidade<br>em tempo real</h1>
+        <p class="home-subtitle">Construa sua operação. Rastreie no mapa. Ganhe eficiência.<br>Tudo dentro do BBM Risk.</p>
+        
+        <div class="cards-wrapper">
+            <!-- Card Cadastro -->
+            <a href="/?menu=Cadastro+e+Consulta" target="_self" class="module-card">
+                <div class="card-title">📋 Portaria e Consulta</div>
+                <div class="card-desc">Gerenciamento ágil e integrado de motoristas e veículos no momento de acesso à base.</div>
+                <div class="card-footer">
+                    <span>Acessar Módulo</span>
+                    <span class="card-arrow">→</span>
+                </div>
+            </a>
+            
+            <!-- Card Solicitação -->
+            <a href="/?menu=Solicitação+de+Monitoramento" target="_self" class="module-card">
+                <div class="card-title">📝 Monitoramento <span class="tag-new">NOVO</span></div>
+                <div class="card-desc">Crie solicitações de espelhamento e rastreamento em segundos. Agilize o contato com a GR.</div>
+                <div class="card-footer">
+                    <span>Acessar Módulo</span>
+                    <span class="card-arrow">→</span>
+                </div>
+            </a>
+            
+            <!-- Card Torre -->
+            <a href="{torre_href}" target="_self" class="module-card {torre_disabled}">
+                <div class="card-title">🗺️ Torre de Controle</div>
+                <div class="card-desc">Tenha a visibilidade total da sua frota em um mapa dinâmico com alertas inteligentes instantâneos.</div>
+                <div class="card-footer">
+                    <span>Acessar Módulo</span>
+                    <span class="card-arrow">→</span>
+                </div>
+            </a>
+        </div>
+    """
+
+    if is_admin:
+        html_cards += f"""
+        <h3 style="text-align: left; margin-top: 2rem; margin-bottom: 1.5rem; font-family: 'Inter', sans-serif; font-size: 1.5rem;">Módulos Gerenciais</h3>
+        <div class="cards-wrapper" style="justify-content: flex-start;">
+        """
+        if role.startswith('admin'):
+            html_cards += """
+            <a href="/?menu=Dashboard" target="_self" class="module-card" style="width: 31%; min-width: 280px;">
+                <div class="card-title">📊 Dashboard <span class="tag-admin">ADMIN</span></div>
+                <div class="card-desc">Métricas gerenciais completas de tempo em viagem, veículos disponíveis e pendentes.</div>
+                <div class="card-footer">
+                    <span>Visualizar Painel</span>
+                    <span class="card-arrow">→</span>
+                </div>
+            </a>
+            """
+        html_cards += """
+            <a href="/?menu=Configurações" target="_self" class="module-card" style="width: 31%; min-width: 280px;">
+                <div class="card-title">⚙️ Configurações</div>
+                <div class="card-desc">Gerencie usuários, permissões, parâmetros da filial e conexões com sistemas externos.</div>
+                <div class="card-footer">
+                    <span>Gerenciar</span>
+                    <span class="card-arrow">→</span>
+                </div>
+            </a>
+        </div>
+        """
+        
+    html_cards += "</div>"
+    
+    st.markdown(html_cards, unsafe_allow_html=True)
 
 def render_cadastro_consulta(user):
     st.header("📋 Cadastro e Consulta")
