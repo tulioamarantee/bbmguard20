@@ -1463,6 +1463,75 @@ def criar_ae_express(dados, empresa_id, usuario_id, modo_simulacao=False):
 
 
 @st.cache_data(ttl=60, show_spinner=False)
+def sincronizar_status_viagens(empresa_id):
+    """Sincroniza o status das AEs locais que estão ativas com o SIL."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, cd_viagem, status FROM viagens WHERE empresa_id = %s AND cd_viagem IS NOT NULL AND status NOT ILIKE '%Cancelada%' AND status NOT ILIKE '%Conclu%' AND status NOT ILIKE '%Baixada%'", (empresa_id,))
+    ativas_locais = cursor.fetchall()
+    
+    if not ativas_locais:
+        conn.close()
+        return
+
+    import soap_client
+    import re
+    from datetime import datetime, timedelta
+    dt_final = datetime.now()
+    dt_inicial = dt_final - timedelta(days=15)
+    dt_f = dt_final.strftime("%Y-%m-%dT%H:%M:%S")
+    dt_i = dt_inicial.strftime("%Y-%m-%dT%H:%M:%S")
+
+    resp = soap_client.post_soap('sgrListaAE', f'''<?xml version="1.0" encoding="utf-8"?>
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:tem="http://tempuri.org/">
+  <soapenv:Header/>
+  <soapenv:Body>
+    <tem:sgrListaAE>
+      <tem:chaveacesso>{soap_client.sgr_login()}</tem:chaveacesso>
+      <tem:cdpas>{soap_client.CD_PAS}</tem:cdpas>
+      <tem:cdcliente>{soap_client.CD_CLIENTE}</tem:cdcliente>
+      <tem:datainicial>{dt_i}</tem:datainicial>
+      <tem:datafinal>{dt_f}</tem:datafinal>
+      <tem:tipo>1</tem:tipo>
+      <tem:placa></tem:placa>
+      <tem:cdDest>0</tem:cdDest>
+      <tem:tipoOperacao>0</tem:tipoOperacao>
+      <tem:cdCidOrig>0</tem:cdCidOrig>
+      <tem:cdCidDest>0</tem:cdCidDest>
+      <tem:dtPrevisaoChegada></tem:dtPrevisaoChegada>
+      <tem:cdTransp>0</tem:cdTransp>
+    </tem:sgrListaAE>
+  </soapenv:Body>
+</soapenv:Envelope>''')
+    
+    if resp:
+        matches = re.findall(r'<sgrTB.*?>.*?</sgrTB>', resp, re.DOTALL)
+        sil_status = {}
+        for m in matches:
+            sit = re.search(r'<SITUACAO>(.*?)</SITUACAO>', m)
+            cd = re.search(r'<CDVIAG>(.*?)</CDVIAG>', m)
+            if sit and cd:
+                sil_status[cd.group(1).strip()] = sit.group(1).strip()
+        
+        for local in ativas_locais:
+            cd_viag_str = str(local['cd_viagem'])
+            if cd_viag_str in sil_status:
+                novo_status = sil_status[cd_viag_str]
+                if "ANDAMENTO" in novo_status.upper():
+                    novo_status_formatado = "Em Andamento"
+                elif "CONCLU" in novo_status.upper():
+                    novo_status_formatado = "Concluída"
+                elif "CANCELADA" in novo_status.upper():
+                    novo_status_formatado = "Cancelada"
+                else:
+                    novo_status_formatado = novo_status
+                
+                # Só atualiza se for diferente para não escrever no BD à toa
+                if local['status'] != novo_status_formatado:
+                    cursor.execute("UPDATE viagens SET status = %s WHERE id = %s", (novo_status_formatado, local['id']))
+        conn.commit()
+    conn.close()
+
 def listar_viagens(empresa_id, busca=""):
     """
     Lista as viagens/AEs cadastradas no histórico local.

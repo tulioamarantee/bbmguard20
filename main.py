@@ -1251,9 +1251,9 @@ def render_ae_express(user):
     else:
         for v in viagens:
             status = v['status']
-            if "Cancelada" in status:
+            if "Cancelada" in status or "CANCELADA" in status.upper():
                 status_badge = '<span class="badge badge-perigo">CANCELADA</span>'
-            elif "Baixada" in status:
+            elif "Baixada" in status or "CONCLU" in status.upper() or "Concluída" in status:
                 status_badge = '<span class="badge" style="background-color: #6c757d; color: white;">CONCLUÍDA</span>'
             else:
                 status_badge = '<span class="badge badge-sucesso">EM MONITORAMENTO</span>'
