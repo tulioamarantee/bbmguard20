@@ -139,9 +139,20 @@ def main_app():
     elif menu == "Configurações":
         render_config(user)
 
-def render_torre_controle(user):
-    st.header("🗺️ Torre de Controle")
-    st.caption("Visão em tempo real das Viagens (AEs) Ativas da frota.")
+def render_torre_controle(user, fullscreen=False):
+    if not fullscreen:
+        st.header("🗺️ Torre de Controle")
+        st.caption("Visão em tempo real das Viagens (AEs) Ativas da frota.")
+        
+        # Link de tela cheia
+        link = f"/?mapa_fullscreen=1&emp={user['empresa_id']}"
+        st.markdown(f'''
+        <a href="{link}" target="_blank" style="display: inline-block; padding: 8px 16px; background-color: var(--primary-color); color: white; text-decoration: none; border-radius: 5px; font-weight: bold; margin-bottom: 15px;">
+            🖥️ Abrir Mapa em Tela Cheia
+        </a>
+        ''', unsafe_allow_html=True)
+    else:
+        st.markdown("<h2 style='text-align: center;'>🗺️ Torre de Controle - Tela Cheia</h2>", unsafe_allow_html=True)
     
     with st.spinner("Sincronizando coordenadas com o SIL..."):
         viagens = services.listar_viagens_ativas_com_coordenadas(user['empresa_id'])
@@ -151,6 +162,8 @@ def render_torre_controle(user):
         return
         
     import pandas as pd
+    import folium
+    from streamlit_folium import st_folium
     
     # Filtrar apenas as viagens que tem lat/lon válidos
     v_map = [v for v in viagens if v.get('lat') and v.get('lon')]
@@ -166,19 +179,43 @@ def render_torre_controle(user):
             
     with col1:
         if v_map:
-            df = pd.DataFrame(v_map)
-            st.map(df, size=150, color="#FF0000")
+            # Calcular o centro do mapa
+            lats = [float(v['lat']) for v in v_map]
+            lons = [float(v['lon']) for v in v_map]
+            center_lat = sum(lats) / len(lats)
+            center_lon = sum(lons) / len(lons)
+            
+            m = folium.Map(location=[center_lat, center_lon], zoom_start=5)
+            
+            # Adicionar marcadores customizados
+            for v in v_map:
+                popup_text = f"<b>AE:</b> {v.get('cd_viagem')}<br><b>Placa:</b> {v.get('placa_cavalo')}<br><b>Motorista:</b> {v.get('nome_mot_bd')}"
+                
+                # Para ter o "caminhão azul", usamos o ícone do FontAwesome
+                icon = folium.Icon(color='blue', icon='truck', prefix='fa')
+                
+                folium.Marker(
+                    [float(v['lat']), float(v['lon'])],
+                    popup=popup_text,
+                    tooltip=v.get('placa_cavalo'),
+                    icon=icon
+                ).add_to(m)
+                
+            # Exibe o mapa. Na tela cheia, podemos deixar mais largo.
+            map_height = 800 if fullscreen else 500
+            st_folium(m, use_container_width=True, height=map_height, returned_objects=[])
         else:
             st.warning("Não foi possível obter a geolocalização dos veículos.")
 
-    st.markdown("### 🚚 Resumo das Posições")
-    df_table = pd.DataFrame(viagens)
-    if not df_table.empty:
-        # Arrumar colunas para exibir
-        cols = ['cd_viagem', 'placa_cavalo', 'nome_mot_bd', 'origem', 'cidade_posicao', 'data_posicao']
-        df_exibir = df_table[[c for c in cols if c in df_table.columns]]
-        df_exibir.columns = ['AE', 'Placa', 'Motorista', 'Origem Prevista', 'Cidade Atual', 'Data Últ. Pos']
-        st.dataframe(df_exibir, use_container_width=True, hide_index=True)
+    if not fullscreen:
+        st.markdown("### 🚚 Resumo das Posições")
+        df_table = pd.DataFrame(viagens)
+        if not df_table.empty:
+            # Arrumar colunas para exibir
+            cols = ['cd_viagem', 'placa_cavalo', 'nome_mot_bd', 'origem', 'cidade_posicao', 'data_posicao']
+            df_exibir = df_table[[c for c in cols if c in df_table.columns]]
+            df_exibir.columns = ['AE', 'Placa', 'Motorista', 'Origem Prevista', 'Cidade Atual', 'Data Últ. Pos']
+            st.dataframe(df_exibir, use_container_width=True, hide_index=True)
 
 def render_dashboard(user):
     from datetime import datetime, timedelta
@@ -1356,7 +1393,25 @@ def render_ae_express(user):
                             pass
 
 # --- EXECUÇÃO ---
-if not st.session_state.autenticado:
+qp = st.query_params
+if qp.get("mapa_fullscreen") == "1":
+    emp_id = qp.get("emp", "")
+    if emp_id.isdigit():
+        user_mock = {"empresa_id": int(emp_id), "role": "admin"}
+        # Aplicar estilos básicos para esconder o restolho do streamlit
+        st.markdown("""
+            <style>
+                header[data-testid="stHeader"] {display: none;}
+                [data-testid="collapsedControl"] {display: none;}
+                #MainMenu {visibility: hidden;}
+                footer {visibility: hidden;}
+                .block-container {padding-top: 1rem; padding-bottom: 0;}
+            </style>
+        """, unsafe_allow_html=True)
+        render_torre_controle(user_mock, fullscreen=True)
+    else:
+        st.error("Acesso Inválido")
+elif not st.session_state.autenticado:
     login_screen()
 else:
     main_app()

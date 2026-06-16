@@ -943,6 +943,7 @@ def listar_aes_em_andamento():
     matches = re.findall(r'<sgrTB.*?>.*?</sgrTB>', resp, re.DOTALL)
     
     ativas = []
+    placas_vistas = set()
     for m in matches:
         sit = re.search(r'<SITUACAO>(.*?)</SITUACAO>', m)
         if sit and 'ANDAMENTO' in sit.group(1).upper():
@@ -953,12 +954,15 @@ def listar_aes_em_andamento():
             origem = re.search(r'<DSCIDORIGEM>(.*?)</DSCIDORIGEM>', m)
             destino = re.search(r'<DSCIDDESTINO>(.*?)</DSCIDDESTINO>', m)
             
-            ativas.append({
-                "cd_viagem": cd_viag.group(1).strip() if cd_viag else "N/A",
-                "placa_cavalo": placa.group(1).strip() if placa else "",
-                "nome_mot_bd": motorista.group(1).strip() if motorista else "N/A",
-                "origem": origem.group(1).strip() if origem else "N/A",
-                "destino": destino.group(1).strip() if destino else "N/A"
-            })
+            placa_str = placa.group(1).strip() if placa else ""
+            if placa_str and placa_str not in placas_vistas:
+                placas_vistas.add(placa_str)
+                ativas.append({
+                    "cd_viagem": cd_viag.group(1).strip() if cd_viag else "N/A",
+                    "placa_cavalo": placa_str,
+                    "nome_mot_bd": motorista.group(1).strip() if motorista else "N/A",
+                    "origem": origem.group(1).strip() if origem else "N/A",
+                    "destino": destino.group(1).strip() if destino else "N/A"
+                })
             
     return ativas
