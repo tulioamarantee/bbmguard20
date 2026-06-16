@@ -908,7 +908,7 @@ def listar_aes_em_andamento():
 
     from datetime import datetime, timedelta
     dt_final = datetime.now()
-    dt_inicial = dt_final - timedelta(days=7)
+    dt_inicial = dt_final - timedelta(days=60)
     
     dt_f = dt_final.strftime("%Y-%m-%dT%H:%M:%S")
     dt_i = dt_inicial.strftime("%Y-%m-%dT%H:%M:%S")

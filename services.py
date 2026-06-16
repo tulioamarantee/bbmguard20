@@ -1478,7 +1478,7 @@ def sincronizar_status_viagens(empresa_id):
     import re
     from datetime import datetime, timedelta
     dt_final = datetime.now()
-    dt_inicial = dt_final - timedelta(days=15)
+    dt_inicial = dt_final - timedelta(days=60)
     dt_f = dt_final.strftime("%Y-%m-%dT%H:%M:%S")
     dt_i = dt_inicial.strftime("%Y-%m-%dT%H:%M:%S")
 
@@ -1529,6 +1529,13 @@ def sincronizar_status_viagens(empresa_id):
                 # Só atualiza se for diferente para não escrever no BD à toa
                 if local['status'] != novo_status_formatado:
                     cursor.execute("UPDATE viagens SET status = %s WHERE id = %s", (novo_status_formatado, local['id']))
+            else:
+                # Se não encontrou no SIL (mesmo buscando 60 dias pra trás), assumimos que foi baixada/concluída
+                # ignoramos viagens simuladas
+                if "Simulada" not in local['status']:
+                    novo_status_formatado = "Concluída"
+                    if local['status'] != novo_status_formatado:
+                        cursor.execute("UPDATE viagens SET status = %s WHERE id = %s", (novo_status_formatado, local['id']))
         conn.commit()
     conn.close()
 
@@ -2303,6 +2310,11 @@ def listar_viagens_ativas_com_coordenadas(empresa_id):
     Busca viagens "EM ANDAMENTO" diretamente no SIL (Opentech).
     Tem cache de 5 minutos (300s) para não sobrecarregar a API.
     """
+    try:
+        sincronizar_status_viagens(empresa_id)
+    except Exception as e:
+        logging.error(f"Erro ao sincronizar viagens do mapa: {e}")
+
     # 1. Puxar do SIL ao invés do Banco Local
     viagens_ativas = soap_client.listar_aes_em_andamento()
 
