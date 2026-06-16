@@ -1467,7 +1467,7 @@ def sincronizar_status_viagens(empresa_id):
     """Sincroniza o status das AEs locais que estão ativas com o SIL."""
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, cd_viagem, status FROM viagens WHERE empresa_id = %s AND cd_viagem IS NOT NULL AND status NOT ILIKE '%Cancelada%' AND status NOT ILIKE '%Conclu%' AND status NOT ILIKE '%Baixada%'", (empresa_id,))
+    cursor.execute("SELECT id, cd_viagem, status FROM viagens WHERE empresa_id = %s AND cd_viagem IS NOT NULL AND status IN ('Ativa', 'Em Andamento', 'Em Monitoramento')", (empresa_id,))
     ativas_locais = cursor.fetchall()
     
     if not ativas_locais:
@@ -1555,7 +1555,7 @@ def listar_viagens(empresa_id, busca=""):
     params = [empresa_id]
     
     if busca:
-        query += " AND (cpf_motorista ILIKE %s OR nome_motorista ILIKE %s OR placa_cavalo ILIKE %s OR placa_carreta ILIKE %s OR CAST(cd_viagem AS TEXT) ILIKE %s)"
+        query += " AND (LOWER(cpf_motorista) LIKE LOWER(%s) OR LOWER(nome_motorista) LIKE LOWER(%s) OR LOWER(placa_cavalo) LIKE LOWER(%s) OR LOWER(placa_carreta) LIKE LOWER(%s) OR CAST(cd_viagem AS TEXT) LIKE %s)"
         params.extend([f"%{busca}%", f"%{busca}%", f"%{busca}%", f"%{busca}%", f"%{busca}%"])
         
     query += " ORDER BY id DESC"
