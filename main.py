@@ -103,7 +103,7 @@ def main_app():
             st.rerun()
             
         st.markdown("<br><br><br>", unsafe_allow_html=True)
-        if st.button("v1.0.0", use_container_width=True):
+        if st.button("v1.2.0", use_container_width=True):
             st.balloons()
             st.markdown("""
                 <style>
@@ -145,44 +145,74 @@ def main_app():
         render_config(user)
 
 def render_home(user):
-    st.markdown("<h2 style='text-align: center; margin-bottom: 30px;'>Bem-vindo(a) ao BBM RISK</h2>", unsafe_allow_html=True)
+    st.markdown("""
+    <style>
+    /* Ocultar a sidebar completamente na tela inicial */
+    [data-testid="stSidebar"] { display: none !important; }
+    [data-testid="collapsedControl"] { display: none !important; }
+    
+    /* Estilizar APENAS os botões da Home para parecerem cards */
+    .stApp div.stButton > button {
+        height: 200px !important;
+        border-radius: 15px !important;
+        border: none !important;
+        color: white !important;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1) !important;
+        transition: transform 0.2s, box-shadow 0.2s !important;
+    }
+    .stApp div.stButton > button:hover {
+        transform: translateY(-5px) !important;
+        box-shadow: 0 8px 25px rgba(0,0,0,0.2) !important;
+        border: none !important;
+        color: white !important;
+    }
+    .stApp div.stButton > button p {
+        font-size: 1.3rem !important;
+        font-weight: bold !important;
+        text-transform: uppercase !important;
+        white-space: pre-wrap !important;
+    }
+    
+    /* Aplicar degradês por ordem das colunas */
+    div[data-testid="column"]:nth-child(1) div.stButton > button {
+        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)) !important;
+    }
+    div[data-testid="column"]:nth-child(2) div.stButton > button {
+        background: linear-gradient(135deg, #1e3c72, #2a5298) !important;
+    }
+    div[data-testid="column"]:nth-child(3) div.stButton > button {
+        background: linear-gradient(135deg, #ff416c, #ff4b2b) !important;
+    }
+    /* Estilo para botão desabilitado */
+    div[data-testid="column"]:nth-child(3) div.stButton > button:disabled {
+        background: #cccccc !important;
+        color: #666666 !important;
+        transform: none !important;
+        box-shadow: none !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown("<h2 style='text-align: center; margin-bottom: 50px;'>Bem-vindo(a) ao BBM RISK</h2>", unsafe_allow_html=True)
     
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        st.markdown("""
-        <div style="background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)); padding: 30px; border-radius: 15px; text-align: center; color: white; height: 180px; display: flex; flex-direction: column; justify-content: center; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 10px;">
-            <h3 style="margin: 0; font-size: 2.5rem;">📋</h3>
-            <h4 style="margin: 10px 0 0 0; font-size: 1.1rem; text-transform: uppercase;">Cadastro e Consulta</h4>
-        </div>
-        """, unsafe_allow_html=True)
-        if st.button("Acessar Módulo", key="btn_cadastro", use_container_width=True):
+        if st.button("📋\n\nCADASTRO E\nCONSULTA", key="btn_cadastro", use_container_width=True):
             st.session_state.current_menu = "Cadastro e Consulta"
             st.rerun()
             
     with col2:
-        st.markdown("""
-        <div style="background: linear-gradient(135deg, #1e3c72, #2a5298); padding: 30px; border-radius: 15px; text-align: center; color: white; height: 180px; display: flex; flex-direction: column; justify-content: center; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 10px;">
-            <h3 style="margin: 0; font-size: 2.5rem;">📝</h3>
-            <h4 style="margin: 10px 0 0 0; font-size: 1.1rem; text-transform: uppercase;">Solicitação de Monitoramento</h4>
-        </div>
-        """, unsafe_allow_html=True)
-        if st.button("Acessar Módulo", key="btn_monitoramento", use_container_width=True):
+        if st.button("📝\n\nSOLICITAÇÃO DE\nMONITORAMENTO", key="btn_monitoramento", use_container_width=True):
             st.session_state.current_menu = "Solicitação de Monitoramento"
             st.rerun()
             
     with col3:
-        st.markdown("""
-        <div style="background: linear-gradient(135deg, #ff416c, #ff4b2b); padding: 30px; border-radius: 15px; text-align: center; color: white; height: 180px; display: flex; flex-direction: column; justify-content: center; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 10px;">
-            <h3 style="margin: 0; font-size: 2.5rem;">🗺️</h3>
-            <h4 style="margin: 10px 0 0 0; font-size: 1.1rem; text-transform: uppercase;">Torre de Controle</h4>
-        </div>
-        """, unsafe_allow_html=True)
         role = (user.get('role') or '').lower()
         if role == 'portaria':
-            st.button("Acesso Restrito", key="btn_torre", use_container_width=True, disabled=True)
+            st.button("🗺️\n\nTORRE DE CONTROLE\n(Acesso Restrito)", key="btn_torre", use_container_width=True, disabled=True)
         else:
-            if st.button("Acessar Módulo", key="btn_torre", use_container_width=True):
+            if st.button("🗺️\n\nTORRE DE CONTROLE", key="btn_torre", use_container_width=True):
                 st.session_state.current_menu = "Torre de Controle"
                 st.rerun()
 
