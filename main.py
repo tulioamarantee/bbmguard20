@@ -1449,6 +1449,50 @@ def render_form_criar_ae(user):
 def render_ae_express(user):
     import services
     import streamlit as st
+
+    def _callback_relancar(v):
+        import re as _re
+        st.session_state.ae_cpf = ''.join(filter(str.isdigit, v['cpf_motorista']))
+        st.session_state.ae_placa = v['placa_cavalo']
+        st.session_state.ae_placa_carreta = v['placa_carreta'] or ""
+        st.session_state.ae_mot_nome = v['nome_motorista']
+        st.session_state.ae_buscou_mot = True
+        st.session_state.ae_buscou_veic = True
+        st.session_state.ae_veic_tipo = "Cavalo (Relançado)"
+        if v.get('placa_carreta'):
+            st.session_state.ae_buscou_carreta = True
+            st.session_state.ae_carreta_tipo = "Carreta (Relançado)"
+        
+        def parse_cid_uf(s):
+            m = _re.match(r"^(.*?)/(..)\s*\((\d+)\)$", s)
+            if m: return m.group(1), m.group(2)
+            return None, None
+            
+        cid_o, uf_o = parse_cid_uf(v['origem'])
+        if uf_o in ESTADOS_BR:
+            st.session_state.ae_orig_uf_sel = uf_o
+            if cid_o in CIDADES_CONHECIDAS.get(uf_o, {}):
+                st.session_state.ae_orig_cid_sel = cid_o
+            else:
+                st.session_state.ae_orig_cid_sel = "Outra cidade..."
+                st.session_state.ae_orig_txt = cid_o
+                
+        cid_d, uf_d = parse_cid_uf(v['destino'])
+        if uf_d in ESTADOS_BR:
+            st.session_state.ae_dest_uf_sel = uf_d
+            if cid_d in CIDADES_CONHECIDAS.get(uf_d, {}):
+                st.session_state.ae_dest_cid_sel = cid_d
+            else:
+                st.session_state.ae_dest_cid_sel = "Outra cidade..."
+                st.session_state.ae_dest_txt = cid_d
+                
+        if v.get('valor_carga'):
+            st.session_state.ae_valor_carga_str = str(v['valor_carga']).replace('.', ',')
+        if v.get('numero_isca'):
+            st.session_state.ae_numero_isca = v['numero_isca']
+            
+        st.session_state.ae_form_open = True
+    import streamlit as st
     col_topo1, col_topo2 = st.columns([4, 1])
     with col_topo1:
         st.header("📊 Viagens & Monitoramentos Ativos")
@@ -1508,6 +1552,9 @@ def render_ae_express(user):
                             pdf_bytes = services.gerar_pdf_ae(v['cd_viagem'], v)
                         if pdf_bytes:
                             st.download_button(label="⬇️ Salvar", data=pdf_bytes, file_name=f"AE_{v['cd_viagem']}_BBMRisk.pdf", mime="application/pdf", use_container_width=True, key=f"dl_pdf_hist_{v['cd_viagem']}")
+                            
+                    if st.button("🔄 Relançar AE", key=f"btn_relancar_{v['cd_viagem']}", use_container_width=True, on_click=_callback_relancar, args=(v,)):
+                        pass
 
 # --- EXECUÇÃO ---
 qp = st.query_params
