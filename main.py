@@ -312,7 +312,15 @@ def render_torre_controle(user, fullscreen=False):
             
             # Adicionar marcadores customizados
             for v in v_map:
-                popup_text = f"<b>AE:</b> {v.get('cd_viagem')}<br><b>Placa:</b> {v.get('placa_cavalo')}<br><b>Motorista:</b> {v.get('nome_mot_bd')}"
+                ds_rota = v.get('ds_rota', 'N/I')
+                popup_text = f"""
+                <div style="font-size: 14px; min-width: 200px; line-height: 1.5;">
+                    <b>AE:</b> {v.get('cd_viagem')}<br>
+                    <b>Placa:</b> {v.get('placa_cavalo')}<br>
+                    <b>Motorista:</b> {v.get('nome_mot_bd')}<br>
+                    <b>Rota:</b> {ds_rota}
+                </div>
+                """
                 
                 # Definir a cor do caminhãozinho
                 cor_icone = 'blue'

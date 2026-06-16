@@ -2318,14 +2318,20 @@ def listar_viagens_ativas_com_coordenadas(empresa_id):
     # 1. Puxar do SIL ao invés do Banco Local
     viagens_ativas = soap_client.listar_aes_em_andamento()
 
-    resultado = []
-    for v in viagens_ativas:
+    from concurrent.futures import ThreadPoolExecutor
+
+    def fetch_viagem_data(v):
         placa = v['placa_cavalo']
-        if not placa:
-            continue
-            
-        coords = soap_client.consultar_coordenadas_veiculo(placa)
+        cd_viagem = v['cd_viagem']
         
+        coords = None
+        if placa:
+            coords = soap_client.consultar_coordenadas_veiculo(placa)
+            
+        dados_ae = None
+        if cd_viagem and cd_viagem != "N/A":
+            dados_ae = soap_client.obter_dados_ae(cd_viagem)
+            
         v_dict = dict(v)
         if coords:
             v_dict['lat'] = coords['lat']
@@ -2338,9 +2344,18 @@ def listar_viagens_ativas_com_coordenadas(empresa_id):
             v_dict['data_posicao'] = None
             v_dict['cidade_posicao'] = None
             
-        # Add situacao so the UI can separate EM ANDAMENTO from NOVA
-        v_dict['situacao'] = v.get('situacao', 'EM ANDAMENTO')
+        if dados_ae and "error" not in dados_ae:
+            v_dict['ds_rota'] = dados_ae.get('ds_rota', 'N/I')
+        else:
+            v_dict['ds_rota'] = 'N/I'
             
-        resultado.append(v_dict)
-        
+        v_dict['situacao'] = v.get('situacao', 'EM ANDAMENTO')
+        return v_dict
+
+    resultado = []
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = [executor.submit(fetch_viagem_data, v) for v in viagens_ativas]
+        for future in futures:
+            resultado.append(future.result())
+            
     return resultado
