@@ -186,12 +186,12 @@ def render_home(user):
     
     /* CSS MAGIC para os botoes nativos do Streamlit virarem cards modernos */
     .stApp div.stButton > button {
-        background: #ffffff !important;
+        background-color: var(--secondary-background-color) !important;
         border-radius: 16px !important;
         padding: 2rem !important;
         height: 180px !important;
         width: 100% !important;
-        border: 1px solid #eaeaea !important;
+        border: 1px solid rgba(128, 128, 128, 0.2) !important;
         color: var(--text-color) !important;
         box-shadow: 0 4px 15px rgba(0,0,0,0.05) !important;
         transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
@@ -199,11 +199,6 @@ def render_home(user):
         flex-direction: column !important;
         align-items: center !important;
         justify-content: center !important;
-    }
-    
-    @media (prefers-color-scheme: dark) {
-        .stApp div.stButton > button { background: #1a1c23 !important; border-color: #2d303e !important; }
-        .home-subtitle { color: #a0aab2 !important; }
     }
     
     .stApp div.stButton > button:hover {
