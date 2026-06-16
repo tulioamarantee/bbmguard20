@@ -1028,7 +1028,8 @@ def modal_criar_ae(user):
         if chave not in st.session_state:
             st.session_state[chave] = valor_padrao
 
-    with st.expander("📋 Colar Dados Rápidos (WhatsApp)", expanded=False):
+    with st.container(border=True):
+        st.markdown("🪄 **Colar Dados Rápidos (WhatsApp)**")
         st.caption("Cole a mensagem do motorista aqui para extrair automaticamente CPF, Placa, Carreta e Isca.")
         texto_colado = st.text_area("Texto livre:", height=100, placeholder="Ex: CPF 123.456.789-00 Placa ABC-1234 Carreta BRA2E19 Isca 12345", label_visibility="collapsed")
         if st.button("Extrair Dados Mágicos ✨", use_container_width=True):
@@ -1036,7 +1037,6 @@ def modal_criar_ae(user):
                 if "solta o cachorro" in texto_colado.lower():
                     st.balloons()
                     st.success("🐶 Mascote ativado! Um ótimo dia de monitoramento pra você!")
-                    import time; time.sleep(2); st.rerun()
                 dados_extraidos = services.extrair_dados_texto(texto_colado)
                 
                 if dados_extraidos.get('cpf'):
