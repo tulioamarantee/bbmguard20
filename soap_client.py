@@ -946,7 +946,7 @@ def listar_aes_em_andamento():
     placas_vistas = set()
     for m in matches:
         sit = re.search(r'<SITUACAO>(.*?)</SITUACAO>', m)
-        if sit and 'ANDAMENTO' in sit.group(1).upper():
+        if sit and ('ANDAMENTO' in sit.group(1).upper() or 'NOVA' in sit.group(1).upper()):
             # Extrair os campos
             cd_viag = re.search(r'<CDVIAG>(.*?)</CDVIAG>', m)
             placa = re.search(r'<NRPLACACAVALO>(.*?)</NRPLACACAVALO>', m)
@@ -962,7 +962,8 @@ def listar_aes_em_andamento():
                     "placa_cavalo": placa_str,
                     "nome_mot_bd": motorista.group(1).strip() if motorista else "N/A",
                     "origem": origem.group(1).strip() if origem else "N/A",
-                    "destino": destino.group(1).strip() if destino else "N/A"
+                    "destino": destino.group(1).strip() if destino else "N/A",
+                    "situacao": sit.group(1).strip().upper()
                 })
             
     return ativas

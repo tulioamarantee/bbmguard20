@@ -2338,6 +2338,9 @@ def listar_viagens_ativas_com_coordenadas(empresa_id):
             v_dict['data_posicao'] = None
             v_dict['cidade_posicao'] = None
             
+        # Add situacao so the UI can separate EM ANDAMENTO from NOVA
+        v_dict['situacao'] = v.get('situacao', 'EM ANDAMENTO')
+            
         resultado.append(v_dict)
         
     return resultado
