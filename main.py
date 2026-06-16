@@ -184,76 +184,45 @@ def render_home(user):
         line-height: 1.6;
     }
     
-    /* CSS MAGIC para os botoes nativos do Streamlit virarem cards Webflow */
-    div[data-testid="column"] button[kind="secondary"] {
-        background: #fdfdfd !important;
+    /* CSS MAGIC para os botoes nativos do Streamlit virarem cards modernos */
+    .stApp div.stButton > button {
+        background: #ffffff !important;
         border-radius: 16px !important;
         padding: 2rem !important;
-        min-height: 250px !important;
-        height: 100% !important;
+        height: 180px !important;
         width: 100% !important;
-        text-align: left !important;
         border: 1px solid #eaeaea !important;
         color: var(--text-color) !important;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.04) !important;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05) !important;
         transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
         display: flex !important;
         flex-direction: column !important;
-        align-items: flex-start !important;
-        justify-content: flex-start !important;
-        white-space: normal !important;
+        align-items: center !important;
+        justify-content: center !important;
     }
     
     @media (prefers-color-scheme: dark) {
-        div[data-testid="column"] button[kind="secondary"] { background: #1a1c23 !important; border-color: #2d303e !important; }
+        .stApp div.stButton > button { background: #1a1c23 !important; border-color: #2d303e !important; }
         .home-subtitle { color: #a0aab2 !important; }
     }
     
-    div[data-testid="column"] button[kind="secondary"]:hover {
-        transform: translateY(-5px) !important;
-        box-shadow: 0 15px 30px rgba(0,0,0,0.1) !important;
-        border-color: #d0d0d0 !important;
+    .stApp div.stButton > button:hover {
+        transform: translateY(-8px) !important;
+        box-shadow: 0 15px 30px rgba(0,0,0,0.15) !important;
+        border-color: var(--primary-color) !important;
     }
     
-    /* Hack para o <p> dentro do botão Streamlit */
-    div[data-testid="column"] button[kind="secondary"] p {
+    .stApp div.stButton > button p {
         font-family: 'Inter', sans-serif !important;
-        font-size: 0.95rem !important;
-        color: #777 !important;
-        line-height: 1.5 !important;
-        margin: 0 !important;
-        text-align: left !important;
-        white-space: pre-wrap !important;
-    }
-    
-    /* O primeiro trecho de texto (antes do \\n) será formatado como Titulo do Card */
-    div[data-testid="column"] button[kind="secondary"] p::first-line {
         font-size: 1.3rem !important;
         font-weight: 700 !important;
         color: var(--text-color) !important;
-        line-height: 2.5 !important;
-    }
-    
-    /* Injetando a setinha de "Acessar Módulo" no fundo do botão usando pseudo-element */
-    div[data-testid="column"] button[kind="secondary"]::after {
-        content: "Acessar Módulo →";
-        margin-top: auto !important;
-        padding-top: 1.5rem !important;
-        font-weight: 600 !important;
-        font-size: 0.95rem !important;
-        color: var(--primary-color) !important;
-        transition: transform 0.3s ease !important;
-        display: block;
-        width: 100%;
-        text-align: left;
-    }
-    
-    div[data-testid="column"] button[kind="secondary"]:hover::after {
-        transform: translateX(8px) !important;
+        text-align: center !important;
+        margin: 0 !important;
     }
     
     /* Botão Desabilitado */
-    div[data-testid="column"] button[kind="secondary"]:disabled {
+    .stApp div.stButton > button:disabled {
         opacity: 0.5 !important;
         filter: grayscale(100%) !important;
         transform: none !important;
@@ -262,8 +231,8 @@ def render_home(user):
     </style>
     
     <div class="home-container">
-        <h1 class="home-title">Controle & Visibilidade<br>em tempo real</h1>
-        <p class="home-subtitle">Construa sua operação. Rastreie no mapa. Ganhe eficiência.<br>Tudo dentro do BBM Risk.</p>
+        <h1 class="home-title">BBM RISK</h1>
+        <p class="home-subtitle">Torre de Controle & Gestão Integrada</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -271,7 +240,7 @@ def render_home(user):
     
     with col1:
         st.button(
-            "📋 Portaria e Consulta\nGerenciamento ágil e integrado de motoristas e veículos no momento de acesso à base.",
+            "📋\nPORTARIA E CONSULTA",
             key="btn_cadastro",
             use_container_width=True,
             on_click=set_menu,
@@ -280,7 +249,7 @@ def render_home(user):
             
     with col2:
         st.button(
-            "📝 Solicitação de Monitoramento\nCrie solicitações de espelhamento e rastreamento em segundos. Agilize o contato com a GR.",
+            "📝\nMONITORAMENTO",
             key="btn_monitoramento",
             use_container_width=True,
             on_click=set_menu,
@@ -291,14 +260,14 @@ def render_home(user):
         role = (user.get('role') or '').lower()
         if role == 'portaria':
             st.button(
-                "🗺️ Torre de Controle\nTenha a visibilidade total da sua frota em um mapa dinâmico com alertas inteligentes instantâneos.",
+                "🗺️\nTORRE DE CONTROLE\n(Acesso Restrito)",
                 key="btn_torre",
                 use_container_width=True,
                 disabled=True
             )
         else:
             st.button(
-                "🗺️ Torre de Controle\nTenha a visibilidade total da sua frota em um mapa dinâmico com alertas inteligentes instantâneos.",
+                "🗺️\nTORRE DE CONTROLE",
                 key="btn_torre",
                 use_container_width=True,
                 on_click=set_menu,
@@ -307,12 +276,12 @@ def render_home(user):
 
     role = (user.get('role') or '').lower()
     if role in ['admin', 'admin_ti', 'supervisor']:
-        st.markdown("<h3 style='text-align: left; margin-top: 3rem; margin-bottom: 1.5rem; font-family: \"Inter\", sans-serif; font-size: 1.5rem;'>Módulos Gerenciais</h3>", unsafe_allow_html=True)
+        st.markdown("<h3 style='text-align: center; margin-top: 3rem; margin-bottom: 1.5rem; font-family: \"Inter\", sans-serif; font-size: 1.5rem;'>Módulos Gerenciais</h3>", unsafe_allow_html=True)
         col4, col5, col6 = st.columns(3)
         with col4:
             if role.startswith('admin'):
                 st.button(
-                    "📊 Dashboard [ADMIN]\nMétricas gerenciais completas de tempo em viagem, veículos disponíveis e pendentes.",
+                    "📊\nDASHBOARD",
                     key="btn_dash",
                     use_container_width=True,
                     on_click=set_menu,
@@ -320,7 +289,7 @@ def render_home(user):
                 )
         with col5:
             st.button(
-                "⚙️ Configurações\nGerencie usuários, permissões, parâmetros da filial e conexões com sistemas externos.",
+                "⚙️\nCONFIGURAÇÕES",
                 key="btn_config",
                 use_container_width=True,
                 on_click=set_menu,
