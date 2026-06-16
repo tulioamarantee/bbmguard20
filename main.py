@@ -49,7 +49,7 @@ def login_screen():
             <div style="text-align: center; margin-bottom: 25px; margin-top: 40px;">
                 {logo_html}
                 <h1 style="font-family: 'Orbitron', sans-serif; font-weight: 900; letter-spacing: 2px; color: var(--text-color); font-size: 2.3rem; margin: 0;">BBM RISK</h1>
-                <span style="color: #90a4ae; font-size: 0.95rem; font-weight: 500;">Controle de Portaria & Gestão de Risco</span>
+                <span style="color: #90a4ae; font-size: 0.95rem; font-weight: 500;">Controle de Acesso & Torre de Controle</span>
             </div>
         """, unsafe_allow_html=True)
         
