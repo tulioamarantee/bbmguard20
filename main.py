@@ -255,6 +255,8 @@ def render_torre_controle(user, fullscreen=False):
         
     import pandas as pd
     from datetime import datetime
+    import folium
+    from streamlit_folium import st_folium
     
     # Processar categorias
     v_andamento = [v for v in viagens if 'ANDAMENTO' in v.get('situacao', '')]
