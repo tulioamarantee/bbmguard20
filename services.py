@@ -1492,7 +1492,7 @@ def sincronizar_status_viagens(empresa_id):
       <tem:cdcliente>{soap_client.CD_CLIENTE}</tem:cdcliente>
       <tem:datainicial>{dt_i}</tem:datainicial>
       <tem:datafinal>{dt_f}</tem:datafinal>
-      <tem:tipo>0</tem:tipo>
+      <tem:tipo>1</tem:tipo>
       <tem:placa></tem:placa>
       <tem:cdDest>0</tem:cdDest>
       <tem:tipoOperacao>0</tem:tipoOperacao>
