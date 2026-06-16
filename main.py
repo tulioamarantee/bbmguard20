@@ -84,21 +84,11 @@ def main_app():
         
         # Definir opções de navegação
         role = (user.get('role') or '').lower()
-        if role == 'portaria':
-            opcoes = ["Home", "Cadastro e Consulta", "Solicitação de Monitoramento"]
-        elif role == 'supervisor':
-            opcoes = ["Home", "Cadastro e Consulta", "Solicitação de Monitoramento", "Torre de Controle", "Configurações"]
-        elif role.startswith('admin'):
-            opcoes = ["Home", "Cadastro e Consulta", "Solicitação de Monitoramento", "Torre de Controle", "Dashboard", "Configurações"]
-        else:
-            opcoes = ["Home", "Cadastro e Consulta", "Solicitação de Monitoramento", "Torre de Controle"]
-            
+        # Controle de navegação manual via botões da Home
         if "current_menu" not in st.session_state:
             st.session_state.current_menu = "Home"
-        if st.session_state.current_menu not in opcoes:
-            st.session_state.current_menu = "Home"
-        
-        menu = st.radio("Navegação", opcoes, key="current_menu")
+            
+        menu = st.session_state.current_menu
         
         st.divider()
         if st.button("Sair"):
@@ -217,6 +207,17 @@ def render_home(user):
             st.button("🗺️\n\nTORRE DE CONTROLE\n(Acesso Restrito)", key="btn_torre", use_container_width=True, disabled=True)
         else:
             st.button("🗺️\n\nTORRE DE CONTROLE", key="btn_torre", use_container_width=True, on_click=set_menu, args=("Torre de Controle",))
+            
+    # Linha extra para Admins/Supervisores (Dashboard e Configurações)
+    role = (user.get('role') or '').lower()
+    if role in ['admin', 'admin_ti', 'supervisor']:
+        st.markdown("<h3 style='text-align: center; margin-top: 40px; margin-bottom: 20px;'>Módulos Gerenciais</h3>", unsafe_allow_html=True)
+        col4, col5, col6 = st.columns(3)
+        with col4:
+            if role.startswith('admin'):
+                st.button("📊\n\nDASHBOARD", key="btn_dash", use_container_width=True, on_click=set_menu, args=("Dashboard",))
+        with col5:
+            st.button("⚙️\n\nCONFIGURAÇÕES", key="btn_config", use_container_width=True, on_click=set_menu, args=("Configurações",))
 
 def render_cadastro_consulta(user):
     st.header("📋 Cadastro e Consulta")
