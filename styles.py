@@ -124,7 +124,7 @@ def render_header(user=None):
                     display: flex; 
                     align-items: center; 
                     gap: 20px;">
-            <div style="display: flex; align-items: center; justify-content: center;">
+            <div style="display: flex; align-items: center; justify-content: center; background: white; padding: 8px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
                 {logo_html}
             </div>
             <div>
