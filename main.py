@@ -758,75 +758,28 @@ def render_modal_cadastro_veiculo(user):
         elif submit_import and not uploaded_file:
             st.warning("Selecione um arquivo antes de iniciar a importação.")
 
-def render_ae_express(user):
-    st.header("📝 Criar Monitoramento")
+
+@st.cache_data
+def load_cidades():
+    try:
+        import json
+        with open("cidades_opentech.json", "r", encoding="utf-8") as f:
+            return json.load(f)
+    except:
+        return {}
+
+CIDADES_CONHECIDAS = load_cidades()
+
+ESTADOS_BR = [
+    "AC","AL","AM","AP","BA","CE","DF","ES","GO","MA","MG","MS","MT",
+    "PA","PB","PE","PI","PR","RJ","RN","RO","RR","RS","SC","SE","SP","TO"
+]
+
+@st.dialog("➕ Novo Monitoramento", width="large")
+def modal_criar_ae(user):
+    import services
     st.caption("Cadastre e ative uma Autorização de Embarque (AE) na Opentech usando o mínimo de dados.")
 
-    def _callback_relancar(v):
-        import re as _re
-        cpf_digits = ''.join(filter(str.isdigit, v['cpf_motorista']))
-        if len(cpf_digits) == 11:
-            st.session_state.ae_cpf = f"{cpf_digits[:3]}.{cpf_digits[3:6]}.{cpf_digits[6:9]}-{cpf_digits[9:]}"
-        else:
-            st.session_state.ae_cpf = cpf_digits
-            
-        placa_limpa = v['placa_cavalo'].replace("-", "").strip().upper()
-        if len(placa_limpa) == 7:
-            st.session_state.ae_placa = f"{placa_limpa[:3]}-{placa_limpa[3:]}"
-        else:
-            st.session_state.ae_placa = placa_limpa
-            
-        placa_carreta = v['placa_carreta'] or ""
-        placa_c_limpa = placa_carreta.replace("-", "").strip().upper()
-        if len(placa_c_limpa) == 7:
-            st.session_state.ae_placa_carreta = f"{placa_c_limpa[:3]}-{placa_c_limpa[3:]}"
-        else:
-            st.session_state.ae_placa_carreta = placa_c_limpa
-            
-        st.session_state.ae_mot_nome = v['nome_motorista']
-        st.session_state.ae_buscou_mot = True
-        st.session_state.ae_buscou_veic = True
-        st.session_state.ae_veic_tipo = "Cavalo (Relançado)"
-        if v.get('placa_carreta'):
-            st.session_state.ae_buscou_carreta = True
-            st.session_state.ae_carreta_tipo = "Carreta (Relançado)"
-        
-        def parse_cid_uf(s):
-            m = _re.match(r"^(.*?)/(..)\s*\((\d+)\)$", s)
-            if m: return m.group(1), m.group(2)
-            return None, None
-            
-        cid_o, uf_o = parse_cid_uf(v['origem'])
-        if uf_o in ESTADOS_BR:
-            st.session_state.ae_orig_uf_sel = uf_o
-            if cid_o in CIDADES_CONHECIDAS.get(uf_o, {}):
-                st.session_state.ae_orig_cid_sel = cid_o
-            else:
-                st.session_state.ae_orig_cid_sel = "Outra cidade..."
-                st.session_state.ae_orig_txt = cid_o
-                
-        cid_d, uf_d = parse_cid_uf(v['destino'])
-        if uf_d in ESTADOS_BR:
-            st.session_state.ae_dest_uf_sel = uf_d
-            if cid_d in CIDADES_CONHECIDAS.get(uf_d, {}):
-                st.session_state.ae_dest_cid_sel = cid_d
-            else:
-                st.session_state.ae_dest_cid_sel = "Outra cidade..."
-                st.session_state.ae_dest_txt = cid_d
-                
-        if v.get('valor_carga'):
-            v_float = float(v['valor_carga'])
-            st.session_state.ae_valor_carga_str = f"{v_float:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-        if v.get('numero_isca'):
-            st.session_state.ae_numero_isca = v['numero_isca']
-
-    # ── Inicializar session_state ──
-    for chave, valor_padrao in [
-        ("ae_mot_nome", None), ("ae_veic_tipo", None),
-        ("ae_buscou_mot", False), ("ae_buscou_veic", False),
-    ]:
-        if chave not in st.session_state:
-            st.session_state[chave] = valor_padrao
     def _format_cpf():
         val = st.session_state.get("ae_cpf", "")
         limpo = ''.join(filter(str.isdigit, val))
@@ -851,546 +804,483 @@ def render_ae_express(user):
         else:
             st.session_state.ae_placa_carreta = limpo
 
-    @st.cache_data
-    def load_cidades():
+    # ── Inicializar session_state ──
+    for chave, valor_padrao in [
+        ("ae_mot_nome", None), ("ae_veic_tipo", None),
+        ("ae_buscou_mot", False), ("ae_buscou_veic", False),
+    ]:
+        if chave not in st.session_state:
+            st.session_state[chave] = valor_padrao
+
+    with st.expander("📋 Colar Dados Rápidos (WhatsApp)", expanded=False):
+        st.caption("Cole a mensagem do motorista aqui para extrair automaticamente CPF, Placa, Carreta e Isca.")
+        texto_colado = st.text_area("Texto livre:", height=100, placeholder="Ex: CPF 123.456.789-00 Placa ABC-1234 Carreta BRA2E19 Isca 12345", label_visibility="collapsed")
+        if st.button("Extrair Dados Mágicos ✨", use_container_width=True):
+            if texto_colado:
+                if "solta o cachorro" in texto_colado.lower():
+                    st.balloons()
+                    st.success("🐶 Mascote ativado! Um ótimo dia de monitoramento pra você!")
+                    import time; time.sleep(2); st.rerun()
+                dados_extraidos = services.extrair_dados_texto(texto_colado)
+                
+                if dados_extraidos.get('cpf'):
+                    st.session_state.ae_cpf = dados_extraidos['cpf']
+                if dados_extraidos.get('placa'):
+                    st.session_state.ae_placa = dados_extraidos['placa']
+                if dados_extraidos.get('placa_carreta'):
+                    st.session_state.ae_placa_carreta = dados_extraidos['placa_carreta']
+                if dados_extraidos.get('isca'):
+                    st.session_state.ae_numero_isca = dados_extraidos['isca']
+                
+                st.success("✅ Dados extraídos com sucesso!")
+                import time
+                time.sleep(1)
+                st.rerun()
+
+    # ── CPF do Motorista ──
+    st.markdown("**👤 Motorista**")
+    col_cpf, col_btn_cpf = st.columns([3, 1])
+    with col_cpf:
+        cpf_input = st.text_input(
+            "CPF (apenas números)", placeholder="000.000.000-00",
+            key="ae_cpf", on_change=_format_cpf, label_visibility="collapsed"
+        )
+    with col_btn_cpf:
+        st.write("")
+        buscar_mot = st.button("🔍 Buscar", key="btn_buscar_mot", use_container_width=True)
+
+    if buscar_mot:
+        st.session_state.ae_buscou_mot = True
+        cpf_digits = ''.join(filter(str.isdigit, cpf_input or ""))
+        if len(cpf_digits) == 11:
+            mot = services.buscar_motorista_por_cpf(cpf_input, user['empresa_id'])
+            if mot:
+                st.session_state.ae_mot_nome = mot['nome']
+            else:
+                with st.spinner("Buscando motorista no SIL (Opentech)..."):
+                    res_sil = services.consultar_opentech(cpf_digits, "TOKEN", usuario_nome=user['nome'])
+                    if res_sil and res_sil.get("nome") and res_sil.get("nome") != "Erro" and res_sil.get("nome") != "Erro Fatal" and res_sil.get("nome") != "Não Identificado":
+                        st.session_state.ae_mot_nome = res_sil["nome"]
+                        dados_salvar = {
+                            "nome": res_sil["nome"],
+                            "cpf": cpf_digits,
+                            "cnh": res_sil.get("cnh", "N/I"),
+                            "categoria": res_sil.get("categoria", "N/I"),
+                            "status_sil": res_sil.get("status", "Sem Informação"),
+                            "data_consulta_sil": res_sil.get("data_consulta"),
+                            "validade": res_sil.get("validade", "N/I")
+                        }
+                        services.cadastrar_motorista(dados_salvar, user['empresa_id'])
+                    else:
+                        st.session_state.ae_mot_nome = None
+                        erro_msg = res_sil.get("status", "") if res_sil else ""
+                        st.error(f"⛔ Motorista não encontrado. Detalhe SIL: {erro_msg}")
+        else:
+            st.warning("⚠️ Digite um CPF válido com 11 dígitos antes de buscar.")
+
+    if st.session_state.ae_mot_nome:
+        st.success(f"✅ **{st.session_state.ae_mot_nome}** identificado.")
+    elif st.session_state.ae_buscou_mot and not st.session_state.ae_mot_nome:
+        st.error("❌ Motorista não encontrado no banco local nem no SIL.")
+
+    st.divider()
+
+    # ── Placa do Cavalo ──
+    st.markdown("**🚛 Veículo (Cavalo)**")
+    col_placa, col_btn_placa = st.columns([3, 1])
+    with col_placa:
+        placa_cavalo = st.text_input(
+            "Placa (7 dígitos)", placeholder="ABC-1D23",
+            key="ae_placa", on_change=_format_placa, label_visibility="collapsed"
+        )
+    with col_btn_placa:
+        st.write("")
+        buscar_veic = st.button("🔍 Buscar", key="btn_buscar_veic", use_container_width=True)
+
+    if buscar_veic:
+        st.session_state.ae_buscou_veic = True
+        placa_digits = (placa_cavalo or "").replace("-", "").strip().upper()
+        if len(placa_digits) == 7:
+            veic = services.buscar_veiculo_por_placa(placa_cavalo, user['empresa_id'])
+            if veic and (veic.get('status_checklist') in ['N/I', None, ''] or veic.get('ultima_posicao') in ['N/I', None, '']):
+                veic = None
+
+            if veic:
+                st.session_state.ae_veic_tipo = veic.get('tipo_veiculo', 'N/I')
+                st.session_state.ae_veic_pos = veic.get('ultima_posicao', 'N/I')
+                st.session_state.ae_veic_check = veic.get('status_checklist', 'N/I')
+                st.session_state.ae_veic_validade = veic.get('validade', 'N/I')
+            else:
+                with st.spinner("Buscando veículo no SIL (Opentech)..."):
+                    res_sil = services.consultar_opentech_veiculo(placa_digits, "TOKEN", usuario_nome=user['nome'])
+                    if res_sil and res_sil.get("status") and "Erro" not in res_sil.get("status"):
+                        st.session_state.ae_veic_tipo = res_sil.get("tipo_veiculo", "N/I")
+                        st.session_state.ae_veic_pos = res_sil.get("ultima_posicao", "N/I")
+                        st.session_state.ae_veic_check = res_sil.get("checklist", "N/I")
+                        st.session_state.ae_veic_validade = res_sil.get("validade", "N/I")
+                        dados_salvar = {
+                            "placa": placa_digits,
+                            "tipo_veiculo": res_sil.get("tipo_veiculo", "N/I"),
+                            "status": res_sil.get("status", "Sem Informação"),
+                            "validade": res_sil.get("validade", "N/I"),
+                            "ultima_posicao": res_sil.get("ultima_posicao", "N/I"),
+                            "checklist": res_sil.get("checklist", "N/I"),
+                            "data_consulta": res_sil.get("data_consulta"),
+                            "rastreadores": res_sil.get("rastreadores", "N/I"),
+                            "segundo_rastreador": res_sil.get("segundo_rastreador", "Não possui")
+                        }
+                        services.cadastrar_veiculo(dados_salvar, user['empresa_id'])
+                    else:
+                        st.session_state.ae_veic_tipo = None
+                        st.session_state.ae_veic_pos = None
+                        st.session_state.ae_veic_check = None
+                        st.session_state.ae_veic_validade = None
+        else:
+            st.warning("⚠️ Digite a placa completa (7 caracteres) antes de buscar.")
+
+    if st.session_state.get("ae_veic_tipo"):
+        st.success(f"✅ **{(placa_cavalo or '').upper()}** — {st.session_state.ae_veic_tipo}")
+        st.caption(f"📍 Última Posição: {st.session_state.get('ae_veic_pos', 'N/I')} | 📋 Checklist: {st.session_state.get('ae_veic_check', 'N/I')} | 📅 Validade: {st.session_state.get('ae_veic_validade', 'N/I')}")
+    elif st.session_state.get("ae_buscou_veic") and not st.session_state.get("ae_veic_tipo"):
+        st.error("❌ Veículo não encontrado no banco local nem no SIL.")
+
+    # ── Placa da Carreta ──
+    st.markdown("**🚛 Veículo (Carreta - Opcional)**")
+    col_placa_c, col_btn_placa_c = st.columns([3, 1])
+    with col_placa_c:
+        placa_carreta = st.text_input(
+            "Placa da Carreta (7 dígitos)", placeholder="XYZ-9A99",
+            key="ae_placa_carreta", on_change=_format_placa_carreta, label_visibility="collapsed"
+        )
+    with col_btn_placa_c:
+        st.write("")
+        buscar_carreta = st.button("🔍 Buscar", key="btn_buscar_carreta", use_container_width=True)
+
+    if buscar_carreta:
+        st.session_state.ae_buscou_carreta = True
+        placa_carreta_digits = (placa_carreta or "").replace("-", "").strip().upper()
+        if len(placa_carreta_digits) == 7:
+            veic = services.buscar_veiculo_por_placa(placa_carreta, user['empresa_id'])
+            if veic and (veic.get('status_checklist') in ['N/I', None, ''] or veic.get('ultima_posicao') in ['N/I', None, '']):
+                veic = None
+
+            if veic:
+                st.session_state.ae_carreta_tipo = veic.get('tipo_veiculo', 'N/I')
+                st.session_state.ae_carreta_pos = veic.get('ultima_posicao', 'N/I')
+                st.session_state.ae_carreta_check = veic.get('status_checklist', 'N/I')
+                st.session_state.ae_carreta_validade = veic.get('validade', 'N/I')
+            else:
+                with st.spinner("Buscando carreta no SIL (Opentech)..."):
+                    res_sil = services.consultar_opentech_veiculo(placa_carreta_digits, "TOKEN", usuario_nome=user['nome'])
+                    if res_sil and res_sil.get("status") and "Erro" not in res_sil.get("status"):
+                        st.session_state.ae_carreta_tipo = res_sil.get("tipo_veiculo", "N/I")
+                        st.session_state.ae_carreta_pos = res_sil.get("ultima_posicao", "N/I")
+                        st.session_state.ae_carreta_check = res_sil.get("checklist", "N/I")
+                        st.session_state.ae_carreta_validade = res_sil.get("validade", "N/I")
+                        dados_salvar = {
+                            "placa": placa_carreta_digits,
+                            "tipo_veiculo": res_sil.get("tipo_veiculo", "N/I"),
+                            "status": res_sil.get("status", "Sem Informação"),
+                            "validade": res_sil.get("validade", "N/I"),
+                            "ultima_posicao": res_sil.get("ultima_posicao", "N/I"),
+                            "checklist": res_sil.get("checklist", "N/I"),
+                            "data_consulta": res_sil.get("data_consulta"),
+                            "rastreadores": res_sil.get("rastreadores", "N/I"),
+                            "segundo_rastreador": res_sil.get("segundo_rastreador", "Não possui")
+                        }
+                        services.cadastrar_veiculo(dados_salvar, user['empresa_id'])
+                    else:
+                        st.session_state.ae_carreta_tipo = None
+                        st.session_state.ae_carreta_pos = None
+                        st.session_state.ae_carreta_check = None
+                        st.session_state.ae_carreta_validade = None
+        else:
+            st.warning("⚠️ Digite a placa completa (7 caracteres) antes de buscar.")
+
+    if st.session_state.get("ae_carreta_tipo"):
+        st.success(f"✅ **{(placa_carreta or '').upper()}** — {st.session_state.ae_carreta_tipo}")
+        st.caption(f"📍 Última Posição: {st.session_state.get('ae_carreta_pos', 'N/I')} | 📋 Checklist: {st.session_state.get('ae_carreta_check', 'N/I')} | 📅 Validade: {st.session_state.get('ae_carreta_validade', 'N/I')}")
+    elif st.session_state.get("ae_buscou_carreta") and not st.session_state.get("ae_carreta_tipo"):
+        st.error("❌ Carreta não encontrada no banco local nem no SIL.")
+
+    st.divider()
+
+    # ── Rota ──
+    st.markdown("**🗺️ Rota da Viagem**")
+
+    col_orig_uf, col_orig_cid = st.columns([1, 2])
+    with col_orig_uf:
+        orig_uf = st.selectbox("UF", ESTADOS_BR, index=ESTADOS_BR.index("PR"), key="ae_orig_uf_sel", label_visibility="visible")
+    with col_orig_cid:
+        cids_orig = list(CIDADES_CONHECIDAS.get(orig_uf, {}).keys()) + ["Outra cidade..."]
+        orig_cid_sel = st.selectbox("Cidade de Origem", cids_orig, index=None, placeholder="Selecione...", key="ae_orig_cid_sel")
+
+    if orig_cid_sel == "Outra cidade...":
+        orig_cid_txt = st.text_input("Nome da cidade de origem", key="ae_orig_txt", placeholder="Ex: Pinhais")
+        cd_cidade_origem = 9999
+        nome_origem = f"{orig_cid_txt}/{orig_uf}" if orig_cid_txt else f"Genérico/{orig_uf}"
+    elif orig_cid_sel:
+        cd_cidade_origem = CIDADES_CONHECIDAS.get(orig_uf, {}).get(orig_cid_sel, 9999)
+        nome_origem = f"{orig_cid_sel}/{orig_uf}"
+    else:
+        cd_cidade_origem = 9999
+        nome_origem = f"Não informada/{orig_uf}"
+
+    col_dest_uf, col_dest_cid = st.columns([1, 2])
+    with col_dest_uf:
+        dest_uf = st.selectbox("UF", ESTADOS_BR, index=ESTADOS_BR.index("SP"), key="ae_dest_uf_sel", label_visibility="visible")
+    with col_dest_cid:
+        cids_dest = list(CIDADES_CONHECIDAS.get(dest_uf, {}).keys()) + ["Outra cidade..."]
+        dest_cid_sel = st.selectbox("Cidade de Destino", cids_dest, index=None, placeholder="Selecione...", key="ae_dest_cid_sel")
+
+    if dest_cid_sel == "Outra cidade...":
+        dest_cid_txt = st.text_input("Nome da cidade de destino", key="ae_dest_txt", placeholder="Ex: Guarujá")
+        cd_cidade_destino = 9999
+        nome_destino = f"{dest_cid_txt}/{dest_uf}" if dest_cid_txt else f"Genérico/{dest_uf}"
+    elif dest_cid_sel:
+        cd_cidade_destino = CIDADES_CONHECIDAS.get(dest_uf, {}).get(dest_cid_sel, 9999)
+        nome_destino = f"{dest_cid_sel}/{dest_uf}"
+    else:
+        cd_cidade_destino = 9999
+        nome_destino = f"Não informada/{dest_uf}"
+
+    btn_buscar_rotas = st.button("🗺️ Buscar Rotas Disponíveis", use_container_width=True)
+    if btn_buscar_rotas:
+        with st.spinner("Buscando rotas na Opentech..."):
+            rotas_encontradas = services.buscar_rota_especifica(cd_cidade_origem, cd_cidade_destino)
+            eh_erro = isinstance(rotas_encontradas, dict) and "error" in rotas_encontradas
+            eh_vazio = isinstance(rotas_encontradas, list) and len(rotas_encontradas) == 0
+
+            if eh_erro or eh_vazio:
+                todas_rotas = services.buscar_rotas_opentech()
+                if todas_rotas and isinstance(todas_rotas, list) and len(todas_rotas) > 0:
+                    rotas_encontradas = todas_rotas
+                else:
+                    rotas_encontradas = []
+
+            if isinstance(rotas_encontradas, list) and len(rotas_encontradas) > 0:
+                st.session_state.ae_rotas_opcoes = {f"{r['ds_rota']} (Cód: {r['cd_rota']})": r['cd_rota'] for r in rotas_encontradas}
+                total = len(rotas_encontradas)
+                if eh_vazio or eh_erro:
+                    st.info(f"👉 Exibindo as {total} rotas da Opentech. Pesquise pelo nome ou número.")
+                else:
+                    st.success(f"✅ Exibindo as {total} rotas da Opentech. Pesquise pelo nome ou número.")
+            else:
+                st.session_state.ae_rotas_opcoes = {"Rota Padrão / Sem Rota Fixa (Cód: -1)": -1}
+                st.warning("⚠️ Nenhuma rota localizada na Opentech. Usando Rota Padrão (Cód: -1).")
+
+    if "ae_rotas_opcoes" not in st.session_state:
+        st.session_state.ae_rotas_opcoes = {"Rota Padrão / Sem Rota Fixa (Cód: -1)": -1}
+
+    st.divider()
+
+    # ── Formulário para Carga, Isca, Datas e Submissão ──
+    with st.form("ae_express_form", clear_on_submit=False, enter_to_submit=False):
+        col_rota_api, col_rota_man = st.columns([2, 1])
+        with col_rota_api:
+            rota_selecionada = st.selectbox("Selecione a Rota Oficial", list(st.session_state.ae_rotas_opcoes.keys()))
+            cd_rota_api = st.session_state.ae_rotas_opcoes[rota_selecionada]
+        with col_rota_man:
+            cd_rota_manual = st.text_input("Código da Rota Manual", placeholder="Ex: 86147", help="Se a API não achar rotas e o código -1 for rejeitado, digite o código exato aqui.")
+
+        if cd_rota_manual and cd_rota_manual.strip().isdigit() and cd_rota_manual.strip() != "-1":
+            cd_rota_final = int(cd_rota_manual.strip())
+            st.info(f"Usando código de rota manual: {cd_rota_final}")
+        else:
+            cd_rota_final = cd_rota_api
+
+        cnpj_origem = ""
+        cnpj_destino = ""
+
+        if "ae_valor_carga_str" not in st.session_state:
+            st.session_state.ae_valor_carga_str = "50.000,00"
+
+        valor_carga_str = st.text_input("Valor da Carga (R$)", key="ae_valor_carga_str")
         try:
-            import json
-            with open("cidades_opentech.json", "r", encoding="utf-8") as f:
-                return json.load(f)
-        except:
-            return {}
-            
-    CIDADES_CONHECIDAS = load_cidades()
-
-    ESTADOS_BR = [
-        "AC","AL","AM","AP","BA","CE","DF","ES","GO","MA","MG","MS","MT",
-        "PA","PB","PE","PI","PR","RJ","RN","RO","RR","RS","SC","SE","SP","TO"
-    ]
-
-    col_form, col_hist = st.columns([1.8, 1.2])
-
-    with col_form:
-        st.subheader("📄 Novo Monitoramento")
-
-        with st.expander("📋 Colar Dados Rápidos (WhatsApp)", expanded=False):
-            st.caption("Cole a mensagem do motorista aqui para extrair automaticamente CPF, Placa, Carreta e Isca.")
-            texto_colado = st.text_area("Texto livre:", height=100, placeholder="Ex: CPF 123.456.789-00 Placa ABC-1234 Carreta BRA2E19 Isca 12345", label_visibility="collapsed")
-            if st.button("Extrair Dados Mágicos ✨", use_container_width=True):
-                if texto_colado:
-                    if "solta o cachorro" in texto_colado.lower():
-                        st.balloons()
-                        st.success("🐶 Mascote ativado! Um ótimo dia de monitoramento pra você!")
-                        import time; time.sleep(2); st.rerun()
-                    dados_extraidos = services.extrair_dados_texto(texto_colado)
-                    
-                    if dados_extraidos.get('cpf'):
-                        st.session_state.ae_cpf = dados_extraidos['cpf']
-                    if dados_extraidos.get('placa'):
-                        st.session_state.ae_placa = dados_extraidos['placa']
-                    if dados_extraidos.get('placa_carreta'):
-                        st.session_state.ae_placa_carreta = dados_extraidos['placa_carreta']
-                    if dados_extraidos.get('isca'):
-                        st.session_state.ae_numero_isca = dados_extraidos['isca']
-                    
-                    st.success("✅ Dados extraídos com sucesso!")
-                    import time
-                    time.sleep(1)
-                    st.rerun()
-
-        # ── CPF do Motorista ──
-        st.markdown("**👤 Motorista**")
-        col_cpf, col_btn_cpf = st.columns([3, 1])
-        with col_cpf:
-            cpf_input = st.text_input(
-                "CPF (apenas números)", placeholder="000.000.000-00",
-                key="ae_cpf", on_change=_format_cpf, label_visibility="collapsed"
-            )
-        with col_btn_cpf:
-            st.write("")
-            buscar_mot = st.button("🔍 Buscar", key="btn_buscar_mot", use_container_width=True)
-
-        if buscar_mot:
-            st.session_state.ae_buscou_mot = True
-            cpf_digits = ''.join(filter(str.isdigit, cpf_input or ""))
-            if len(cpf_digits) == 11:
-                mot = services.buscar_motorista_por_cpf(cpf_input, user['empresa_id'])
-                if mot:
-                    st.session_state.ae_mot_nome = mot['nome']
-                else:
-                    with st.spinner("Buscando motorista no SIL (Opentech)..."):
-                        res_sil = services.consultar_opentech(cpf_digits, "TOKEN", usuario_nome=user['nome'])
-                        if res_sil and res_sil.get("nome") and res_sil.get("nome") != "Erro" and res_sil.get("nome") != "Erro Fatal" and res_sil.get("nome") != "Não Identificado":
-                            st.session_state.ae_mot_nome = res_sil["nome"]
-                            # Salva no banco local
-                            dados_salvar = {
-                                "nome": res_sil["nome"],
-                                "cpf": cpf_digits,
-                                "cnh": res_sil.get("cnh", "N/I"),
-                                "categoria": res_sil.get("categoria", "N/I"),
-                                "status_sil": res_sil.get("status", "Sem Informação"),
-                                "data_consulta_sil": res_sil.get("data_consulta"),
-                                "validade": res_sil.get("validade", "N/I")
-                            }
-                            services.cadastrar_motorista(dados_salvar, user['empresa_id'])
-                        else:
-                            st.session_state.ae_mot_nome = None
-                            erro_msg = res_sil.get("status", "") if res_sil else ""
-                            st.error(f"⛔ Motorista não encontrado. Detalhe SIL: {erro_msg}")
+            import re as _re
+            v_str = valor_carga_str.replace("R$", "").strip()
+            if "," in v_str:
+                v_limpo = v_str.replace(".", "").replace(",", ".")
             else:
-                st.warning("⚠️ Digite um CPF válido com 11 dígitos antes de buscar.")
-
-        if st.session_state.ae_mot_nome:
-            st.success(f"✅ **{st.session_state.ae_mot_nome}** identificado.")
-        elif st.session_state.ae_buscou_mot and not st.session_state.ae_mot_nome:
-            st.error("❌ Motorista não encontrado no banco local nem no SIL.")
-
-        st.divider()
-
-        # ── Placa do Cavalo ──
-        st.markdown("**🚛 Veículo (Cavalo)**")
-        col_placa, col_btn_placa = st.columns([3, 1])
-        with col_placa:
-            placa_cavalo = st.text_input(
-                "Placa (7 dígitos)", placeholder="ABC-1D23",
-                key="ae_placa", on_change=_format_placa, label_visibility="collapsed"
-            )
-        with col_btn_placa:
-            st.write("")
-            buscar_veic = st.button("🔍 Buscar", key="btn_buscar_veic", use_container_width=True)
-
-        if buscar_veic:
-            st.session_state.ae_buscou_veic = True
-            placa_digits = (placa_cavalo or "").replace("-", "").strip().upper()
-            if len(placa_digits) == 7:
-                veic = services.buscar_veiculo_por_placa(placa_cavalo, user['empresa_id'])
-                
-                # Se encontrou no banco local, mas os dados novos esto vazios, fora buscar no SIL
-                if veic and (veic.get('status_checklist') in ['N/I', None, ''] or veic.get('ultima_posicao') in ['N/I', None, '']):
-                    veic = None
-
-                if veic:
-                    st.session_state.ae_veic_tipo = veic.get('tipo_veiculo', 'N/I')
-                    st.session_state.ae_veic_pos = veic.get('ultima_posicao', 'N/I')
-                    st.session_state.ae_veic_check = veic.get('status_checklist', 'N/I')
-                    st.session_state.ae_veic_validade = veic.get('validade', 'N/I')
+                if _re.match(r"^\d+\.\d{1,2}$", v_str):
+                    v_limpo = v_str
                 else:
-                    with st.spinner("Buscando veículo no SIL (Opentech)..."):
-                        res_sil = services.consultar_opentech_veiculo(placa_digits, "TOKEN", usuario_nome=user['nome'])
-                        if res_sil and res_sil.get("status") and "Erro" not in res_sil.get("status"):
-                            st.session_state.ae_veic_tipo = res_sil.get("tipo_veiculo", "N/I")
-                            st.session_state.ae_veic_pos = res_sil.get("ultima_posicao", "N/I")
-                            st.session_state.ae_veic_check = res_sil.get("checklist", "N/I")
-                            st.session_state.ae_veic_validade = res_sil.get("validade", "N/I")
-                            # Salva ou atualiza no banco local
-                            dados_salvar = {
-                                "placa": placa_digits,
-                                "tipo_veiculo": res_sil.get("tipo_veiculo", "N/I"),
-                                "status": res_sil.get("status", "Sem Informação"),
-                                "validade": res_sil.get("validade", "N/I"),
-                                "ultima_posicao": res_sil.get("ultima_posicao", "N/I"),
-                                "checklist": res_sil.get("checklist", "N/I"),
-                                "data_consulta": res_sil.get("data_consulta"),
-                                "rastreadores": res_sil.get("rastreadores", "N/I"),
-                                "segundo_rastreador": res_sil.get("segundo_rastreador", "Não possui")
-                            }
-                            services.cadastrar_veiculo(dados_salvar, user['empresa_id'])
-                        else:
-                            st.session_state.ae_veic_tipo = None
-                            st.session_state.ae_veic_pos = None
-                            st.session_state.ae_veic_check = None
-                            st.session_state.ae_veic_validade = None
-            else:
-                st.warning("⚠️ Digite a placa completa (7 caracteres) antes de buscar.")
+                    v_limpo = v_str.replace(".", "")
+            valor_carga = float(v_limpo)
+        except Exception:
+            valor_carga = 50000.0
 
-        if st.session_state.get("ae_veic_tipo"):
-            st.success(f"✅ **{(placa_cavalo or '').upper()}** — {st.session_state.ae_veic_tipo}")
-            st.caption(f"📍 Última Posição: {st.session_state.get('ae_veic_pos', 'N/I')} | 📋 Checklist: {st.session_state.get('ae_veic_check', 'N/I')} | 📅 Validade: {st.session_state.get('ae_veic_validade', 'N/I')}")
-        elif st.session_state.get("ae_buscou_veic") and not st.session_state.get("ae_veic_tipo"):
-            st.error("❌ Veículo não encontrado no banco local nem no SIL.")
+        st.caption("ℹ️ **Produto fixado:** E-commerce")
+        numero_isca = st.text_input("Número da Isca (Opcional)", placeholder="Ex: ISCA998877", key="ae_numero_isca")
 
-        # ── Placa da Carreta ──
-        st.markdown("**🚛 Veículo (Carreta - Opcional)**")
-        col_placa_c, col_btn_placa_c = st.columns([3, 1])
-        with col_placa_c:
-            placa_carreta = st.text_input(
-                "Placa da Carreta (7 dígitos)", placeholder="XYZ-9A99",
-                key="ae_placa_carreta", on_change=_format_placa_carreta, label_visibility="collapsed"
-            )
-        with col_btn_placa_c:
-            st.write("")
-            buscar_carreta = st.button("🔍 Buscar", key="btn_buscar_carreta", use_container_width=True)
+        col_d_ini, col_h_ini = st.columns(2)
+        with col_d_ini:
+            data_prev_ini = st.date_input("Previsão de Início", datetime.now().date(), key="d_ini")
+        with col_h_ini:
+            hora_prev_ini = st.time_input("Hora de Início", datetime.now().time(), key="h_ini")
+        previsao_inicio_dt = datetime.combine(data_prev_ini, hora_prev_ini)
 
-        if buscar_carreta:
-            st.session_state.ae_buscou_carreta = True
-            placa_carreta_digits = (placa_carreta or "").replace("-", "").strip().upper()
-            if len(placa_carreta_digits) == 7:
-                veic = services.buscar_veiculo_por_placa(placa_carreta, user['empresa_id'])
-                
-                # Se encontrou no banco local, mas os dados novos esto vazios, fora buscar no SIL
-                if veic and (veic.get('status_checklist') in ['N/I', None, ''] or veic.get('ultima_posicao') in ['N/I', None, '']):
-                    veic = None
+        col_d_fim, col_h_fim = st.columns(2)
+        with col_d_fim:
+            data_prev_fim = st.date_input("Previsão de Fim", datetime.now().date() + timedelta(days=1), key="d_fim")
+        with col_h_fim:
+            hora_prev_fim = st.time_input("Hora de Fim", datetime.now().time(), key="h_fim")
+        previsao_fim_dt = datetime.combine(data_prev_fim, hora_prev_fim)
 
-                if veic:
-                    st.session_state.ae_carreta_tipo = veic.get('tipo_veiculo', 'N/I')
-                    st.session_state.ae_carreta_pos = veic.get('ultima_posicao', 'N/I')
-                    st.session_state.ae_carreta_check = veic.get('status_checklist', 'N/I')
-                    st.session_state.ae_carreta_validade = veic.get('validade', 'N/I')
-                else:
-                    with st.spinner("Buscando carreta no SIL (Opentech)..."):
-                        res_sil = services.consultar_opentech_veiculo(placa_carreta_digits, "TOKEN", usuario_nome=user['nome'])
-                        if res_sil and res_sil.get("status") and "Erro" not in res_sil.get("status"):
-                            st.session_state.ae_carreta_tipo = res_sil.get("tipo_veiculo", "N/I")
-                            st.session_state.ae_carreta_pos = res_sil.get("ultima_posicao", "N/I")
-                            st.session_state.ae_carreta_check = res_sil.get("checklist", "N/I")
-                            st.session_state.ae_carreta_validade = res_sil.get("validade", "N/I")
-                            dados_salvar = {
-                                "placa": placa_carreta_digits,
-                                "tipo_veiculo": res_sil.get("tipo_veiculo", "N/I"),
-                                "status": res_sil.get("status", "Sem Informação"),
-                                "validade": res_sil.get("validade", "N/I"),
-                                "ultima_posicao": res_sil.get("ultima_posicao", "N/I"),
-                                "checklist": res_sil.get("checklist", "N/I"),
-                                "data_consulta": res_sil.get("data_consulta"),
-                                "rastreadores": res_sil.get("rastreadores", "N/I"),
-                                "segundo_rastreador": res_sil.get("segundo_rastreador", "Não possui")
-                            }
-                            services.cadastrar_veiculo(dados_salvar, user['empresa_id'])
-                        else:
-                            st.session_state.ae_carreta_tipo = None
-                            st.session_state.ae_carreta_pos = None
-                            st.session_state.ae_carreta_check = None
-                            st.session_state.ae_carreta_validade = None
-            else:
-                st.warning("⚠️ Digite a placa completa (7 caracteres) antes de buscar.")
-
-        if st.session_state.get("ae_carreta_tipo"):
-            st.success(f"✅ **{(placa_carreta or '').upper()}** — {st.session_state.ae_carreta_tipo}")
-            st.caption(f"📍 Última Posição: {st.session_state.get('ae_carreta_pos', 'N/I')} | 📋 Checklist: {st.session_state.get('ae_carreta_check', 'N/I')} | 📅 Validade: {st.session_state.get('ae_carreta_validade', 'N/I')}")
-        elif st.session_state.get("ae_buscou_carreta") and not st.session_state.get("ae_carreta_tipo"):
-            st.error("❌ Carreta não encontrada no banco local nem no SIL.")
-
-        st.divider()
-
-        # ── Rota ──
-        st.markdown("**🗺️ Rota da Viagem**")
-
-        # Origem
-        col_orig_uf, col_orig_cid = st.columns([1, 2])
-        with col_orig_uf:
-            orig_uf = st.selectbox("UF", ESTADOS_BR, index=ESTADOS_BR.index("PR"), key="ae_orig_uf_sel", label_visibility="visible")
-        with col_orig_cid:
-            cids_orig = list(CIDADES_CONHECIDAS.get(orig_uf, {}).keys()) + ["Outra cidade..."]
-            orig_cid_sel = st.selectbox("Cidade de Origem", cids_orig, index=None, placeholder="Selecione...", key="ae_orig_cid_sel")
-
-        if orig_cid_sel == "Outra cidade...":
-            orig_cid_txt = st.text_input("Nome da cidade de origem", key="ae_orig_txt", placeholder="Ex: Pinhais")
-            cd_cidade_origem = 9999
-            nome_origem = f"{orig_cid_txt}/{orig_uf}" if orig_cid_txt else f"Genérico/{orig_uf}"
-        elif orig_cid_sel:
-            cd_cidade_origem = CIDADES_CONHECIDAS.get(orig_uf, {}).get(orig_cid_sel, 9999)
-            nome_origem = f"{orig_cid_sel}/{orig_uf}"
+        if user.get('role', '').lower().startswith('admin'):
+            modo_simulacao = st.checkbox("Modo de Simulação (Recomendado para Testes)", value=True)
         else:
-            cd_cidade_origem = 9999
-            nome_origem = f"Não informada/{orig_uf}"
+            modo_simulacao = False
 
-        # Destino
-        col_dest_uf, col_dest_cid = st.columns([1, 2])
-        with col_dest_uf:
-            dest_uf = st.selectbox("UF", ESTADOS_BR, index=ESTADOS_BR.index("SP"), key="ae_dest_uf_sel", label_visibility="visible")
-        with col_dest_cid:
-            cids_dest = list(CIDADES_CONHECIDAS.get(dest_uf, {}).keys()) + ["Outra cidade..."]
-            dest_cid_sel = st.selectbox("Cidade de Destino", cids_dest, index=None, placeholder="Selecione...", key="ae_dest_cid_sel")
+        submit_ae = st.form_submit_button("🚀 Iniciar Monitoramento de Viagem", use_container_width=True)
 
-        if dest_cid_sel == "Outra cidade...":
-            dest_cid_txt = st.text_input("Nome da cidade de destino", key="ae_dest_txt", placeholder="Ex: Guarujá")
-            cd_cidade_destino = 9999
-            nome_destino = f"{dest_cid_txt}/{dest_uf}" if dest_cid_txt else f"Genérico/{dest_uf}"
-        elif dest_cid_sel:
-            cd_cidade_destino = CIDADES_CONHECIDAS.get(dest_uf, {}).get(dest_cid_sel, 9999)
-            nome_destino = f"{dest_cid_sel}/{dest_uf}"
-        else:
-            cd_cidade_destino = 9999
-            nome_destino = f"Não informada/{dest_uf}"
+        if submit_ae:
+            cpf_final  = st.session_state.get("ae_cpf", "")
+            placa_final = st.session_state.get("ae_placa", "")
+            placa_carreta_final = st.session_state.get("ae_placa_carreta", "")
+            cpf_digits  = ''.join(filter(str.isdigit, cpf_final))
+            placa_limpa = placa_final.replace("-", "").strip()
 
-        # Botão para consultar rotas
-        btn_buscar_rotas = st.button("🗺️ Buscar Rotas Disponíveis", use_container_width=True)
-        if btn_buscar_rotas:
-            with st.spinner("Buscando rotas na Opentech..."):
-                rotas_encontradas = services.buscar_rota_especifica(cd_cidade_origem, cd_cidade_destino)
-
-                # Se retornou erro (dict) ou lista vazia, busca todas as rotas como fallback
-                eh_erro = isinstance(rotas_encontradas, dict) and "error" in rotas_encontradas
-                eh_vazio = isinstance(rotas_encontradas, list) and len(rotas_encontradas) == 0
-
-                if eh_erro or eh_vazio:
-                    # Fallback: busca todas as rotas modelo ativas da conta
-                    todas_rotas = services.buscar_rotas_opentech()
-                    if todas_rotas and isinstance(todas_rotas, list) and len(todas_rotas) > 0:
-                        rotas_encontradas = todas_rotas
-                    else:
-                        rotas_encontradas = []
-
-                if isinstance(rotas_encontradas, list) and len(rotas_encontradas) > 0:
-                    st.session_state.ae_rotas_opcoes = {f"{r['ds_rota']} (Cód: {r['cd_rota']})": r['cd_rota'] for r in rotas_encontradas}
-                    total = len(rotas_encontradas)
-                    if eh_vazio or eh_erro:
-                        st.info(f"👉 Exibindo as {total} rotas da Opentech. Pesquise pelo nome ou número.")
-                    else:
-                        st.success(f"✅ Exibindo as {total} rotas da Opentech. Pesquise pelo nome ou número.")
-                else:
-                    st.session_state.ae_rotas_opcoes = {"Rota Padrão / Sem Rota Fixa (Cód: -1)": -1}
-                    st.warning("⚠️ Nenhuma rota localizada na Opentech. Usando Rota Padrão (Cód: -1).")
-
-        if "ae_rotas_opcoes" not in st.session_state:
-            st.session_state.ae_rotas_opcoes = {"Rota Padrão / Sem Rota Fixa (Cód: -1)": -1}
-
-        st.divider()
-
-        # ── Formulário para Carga, Isca, Datas e Submissão ──
-        with st.form("ae_express_form", clear_on_submit=False, enter_to_submit=False):
-            col_rota_api, col_rota_man = st.columns([2, 1])
-            with col_rota_api:
-                rota_selecionada = st.selectbox("Selecione a Rota Oficial", list(st.session_state.ae_rotas_opcoes.keys()))
-                cd_rota_api = st.session_state.ae_rotas_opcoes[rota_selecionada]
-            with col_rota_man:
-                cd_rota_manual = st.text_input("Código da Rota Manual", placeholder="Ex: 86147", help="Se a API não achar rotas e o código -1 for rejeitado, digite o código exato aqui.")
-
-            if cd_rota_manual and cd_rota_manual.strip().isdigit() and cd_rota_manual.strip() != "-1":
-                cd_rota_final = int(cd_rota_manual.strip())
-                st.info(f"Usando código de rota manual: {cd_rota_final}")
+            if not cpf_digits or len(cpf_digits) < 3:
+                st.error("⚠️ O CPF do motorista é obrigatório.")
+            elif len(placa_limpa) != 7:
+                st.error("⚠️ A placa do cavalo é obrigatória e deve ter 7 dígitos.")
+            elif previsao_fim_dt <= previsao_inicio_dt:
+                st.error("❌ A previsão de fim deve ser posterior à previsão de início.")
             else:
-                cd_rota_final = cd_rota_api
-
-            # CNPJs removidos da interface (sendo enviados em branco ou padrão internamente)
-            cnpj_origem = ""
-            cnpj_destino = ""
-
-            if "ae_valor_carga_str" not in st.session_state:
-                st.session_state.ae_valor_carga_str = "50.000,00"
-
-            valor_carga_str = st.text_input(
-                "Valor da Carga (R$)", key="ae_valor_carga_str"
-            )
-            
-            try:
-                import re as _re
-                # Limpa os espaços e eventuais "R$"
-                v_str = valor_carga_str.replace("R$", "").strip()
-                if "," in v_str:
-                    # Se tem vírgula, vamos assumir que o ponto é milhar e a vírgula é decimal (Brasil)
-                    v_limpo = v_str.replace(".", "").replace(",", ".")
-                else:
-                    # Se não tem vírgula, verifica se tem formato americano (ex: 50000.50)
-                    if _re.match(r"^\d+\.\d{1,2}$", v_str):
-                        v_limpo = v_str
+                dados_ae = {
+                    "cpf_motorista": cpf_final,
+                    "placa_cavalo": placa_final,
+                    "placa_carreta": placa_carreta_final,
+                    "origem_nome": nome_origem,
+                    "destino_nome": nome_destino,
+                    "cd_cidade_origem": cd_cidade_origem,
+                    "cd_cidade_destino": cd_cidade_destino,
+                    "cnpj_origem": cnpj_origem,
+                    "cnpj_destino": cnpj_destino,
+                    "valor_carga": valor_carga,
+                    "numero_isca": numero_isca,
+                    "previsao_inicio": previsao_inicio_dt,
+                    "previsao_fim": previsao_fim_dt,
+                    "cd_rota": cd_rota_final
+                }
+                with st.spinner("Registrando monitoramento..."):
+                    sucesso, msg = services.criar_ae_express(dados_ae, user['empresa_id'], user['id'], modo_simulacao)
+                    if sucesso:
+                        import re as _re
+                        _match = _re.search(r'AE\s*#?(\d+)', msg)
+                        if _match:
+                            st.session_state.ae_ultimo_cd_viagem = int(_match.group(1))
+                            st.session_state.ae_ultimo_dados = {
+                                "cpf_motorista": cpf_digits,
+                                "nome_motorista": st.session_state.get("ae_mot_nome", ""),
+                                "placa_cavalo": placa_limpa,
+                                "placa_carreta": placa_carreta_final,
+                                "origem": nome_origem,
+                                "destino": nome_destino,
+                                "valor_carga": valor_carga,
+                                "produto": "E-commerce",
+                                "numero_isca": numero_isca,
+                                "previsao_inicio": str(previsao_inicio_dt),
+                                "previsao_fim": str(previsao_fim_dt),
+                                "status": "Ativa (Simulada)" if modo_simulacao else "Ativa",
+                            }
+                        st.session_state.ae_mot_nome = None
+                        st.session_state.ae_veic_tipo = None
+                        st.session_state.ae_carreta_tipo = None
+                        st.session_state.ae_buscou_mot = False
+                        st.session_state.ae_buscou_veic = False
+                        st.session_state.ae_buscou_carreta = False
+                        if "ae_rotas_opcoes" in st.session_state:
+                            del st.session_state.ae_rotas_opcoes
+                        st.success(msg)
+                        st.rerun()
                     else:
-                        # Se não, assumimos que os pontos são de milhar
-                        v_limpo = v_str.replace(".", "")
+                        st.error(msg)
+
+    # ── Download PDF da última AE criada ──
+    if "ae_ultimo_cd_viagem" in st.session_state and st.session_state.ae_ultimo_cd_viagem:
+        cd_v = st.session_state.ae_ultimo_cd_viagem
+        st.markdown(f"""<div style='background:linear-gradient(135deg,#1B4332,#2D6A4F);
+            padding:16px 20px; border-radius:8px; border-left:6px solid #4CAF50; margin-top:16px; margin-bottom:16px;'>
+            <span style='color:#D8F3DC;font-size:13px;font-weight:bold;letter-spacing:1px;'>✅ AE CRIADA COM SUCESSO</span><br>
+            <span style='color:white;font-weight:bold;font-size:18px;'>AE #{cd_v} — Pronta para download</span>
+        </div>""", unsafe_allow_html=True)
+        col_dl, col_cl = st.columns([3, 1])
+        with col_dl:
+            if st.button("📄 Gerar PDF da AE", key="btn_pdf_ae_topo", use_container_width=True, type="primary"):
+                with st.spinner("Gerando PDF..."):
+                    pdf_bytes = services.gerar_pdf_ae(
+                        cd_v, st.session_state.get("ae_ultimo_dados", {})
+                    )
+                if pdf_bytes:
+                    st.download_button(
+                        label=f"⬇️ Baixar AE #{cd_v}.pdf",
+                        data=pdf_bytes,
+                        file_name=f"AE_{cd_v}_BBMRisk.pdf",
+                        mime="application/pdf",
+                        use_container_width=True,
+                        key="dl_pdf_ae_topo"
+                    )
+                else:
+                    st.error("❌ Não foi possível gerar o PDF. Tente novamente.")
+        with col_cl:
+            if st.button("✖ Fechar", key="btn_fechar_pdf_banner", use_container_width=True):
+                del st.session_state.ae_ultimo_cd_viagem
+                del st.session_state.ae_ultimo_dados
+                st.rerun()
+
+def render_ae_express(user):
+    import services
+    import streamlit as st
+    col_topo1, col_topo2 = st.columns([4, 1])
+    with col_topo1:
+        st.header("📊 Viagens & Monitoramentos Ativos")
+        st.caption("Visualize as autorizações de embarque (AE) criadas ou inicie uma nova.")
+    with col_topo2:
+        st.write("")
+        if st.button("➕ Novo Monitoramento", type="primary", use_container_width=True):
+            modal_criar_ae(user)
+
+    busca_ae = st.text_input("🔎 Filtrar por CPF, Placa, Isca ou Cód. Viagem")
+
+    viagens = services.listar_viagens(user['empresa_id'], busca_ae)
+
+    if not viagens:
+        st.info("Nenhum monitoramento registrado recentemente.")
+    else:
+        for v in viagens:
+            status = v['status']
+            if "Cancelada" in status:
+                status_badge = '<span class="badge badge-perigo">CANCELADA</span>'
+            elif "Baixada" in status:
+                status_badge = '<span class="badge" style="background-color: #6c757d; color: white;">CONCLUÍDA</span>'
+            else:
+                status_badge = '<span class="badge badge-sucesso">EM MONITORAMENTO</span>'
+
+            titulo_exp = f"🚚 AE #{v['cd_viagem']} | {v['placa_cavalo']} -> {v['destino'].split('(')[0]} | {status}"
+
+            with st.expander(titulo_exp):
+                col_det, col_acoes = st.columns([2, 1])
+
+                with col_det:
+                    st.markdown(f"**Motorista:** {v['nome_motorista']} ({v['cpf_motorista']})")
+                    st.markdown(f"**Veículos:** Cavalo: `{v['placa_cavalo']}`" + (f" | Carreta: `{v['placa_carreta']}`" if v['placa_carreta'] else ""))
+                    st.markdown(f"**Rota:** {v['origem']} ➔ {v['destino']}")
+                    st.markdown(f"**Produto:** {v['produto']} | **Valor:** R$ {v['valor_carga']:,.2f}")
+                    isca_str = f"`{v['numero_isca']}`" if v.get('numero_isca') else "_Não possui_"
+                    st.markdown(f"**Número da Isca:** {isca_str}")
+                    prev_fim_str = v.get('previsao_fim') or "_Não informada_"
+                    st.caption(f"Início: {v['previsao_inicio']} | Fim: {prev_fim_str} | Cadastro: {v['data_criacao']}")
                 
-                valor_carga = float(v_limpo)
-            except Exception:
-                valor_carga = 50000.0
-
-            st.caption("ℹ️ **Produto fixado:** E-commerce")
-            numero_isca = st.text_input("Número da Isca (Opcional)", placeholder="Ex: ISCA998877", key="ae_numero_isca")
-
-            col_d_ini, col_h_ini = st.columns(2)
-            with col_d_ini:
-                data_prev_ini = st.date_input("Previsão de Início", datetime.now().date(), key="d_ini")
-            with col_h_ini:
-                hora_prev_ini = st.time_input("Hora de Início", datetime.now().time(), key="h_ini")
-            previsao_inicio_dt = datetime.combine(data_prev_ini, hora_prev_ini)
-
-            col_d_fim, col_h_fim = st.columns(2)
-            with col_d_fim:
-                data_prev_fim = st.date_input("Previsão de Fim", datetime.now().date() + timedelta(days=1), key="d_fim")
-            with col_h_fim:
-                hora_prev_fim = st.time_input("Hora de Fim", datetime.now().time(), key="h_fim")
-            previsao_fim_dt = datetime.combine(data_prev_fim, hora_prev_fim)
-
-            # Apenas usuários admin podem usar modo simulação
-            if user.get('role', '').lower().startswith('admin'):
-                modo_simulacao = st.checkbox(
-                    "Modo de Simulação (Recomendado para Testes)", value=True,
-                    help="Evita chamadas de produção que possam falhar por falta de dados reais cadastrados no webservice da Opentech."
-                )
-            else:
-                modo_simulacao = False
-
-            submit_ae = st.form_submit_button("🚀 Iniciar Monitoramento de Viagem", use_container_width=True)
-
-            if submit_ae:
-                cpf_final  = st.session_state.get("ae_cpf", "")
-                placa_final = st.session_state.get("ae_placa", "")
-                placa_carreta_final = st.session_state.get("ae_placa_carreta", "")
-                cpf_digits  = ''.join(filter(str.isdigit, cpf_final))
-                placa_limpa = placa_final.replace("-", "").strip()
-
-                if not cpf_digits or len(cpf_digits) < 3:
-                    st.error("⚠️ O CPF do motorista é obrigatório.")
-                elif len(placa_limpa) != 7:
-                    st.error("⚠️ A placa do cavalo é obrigatória e deve ter 7 dígitos.")
-                elif previsao_fim_dt <= previsao_inicio_dt:
-                    st.error("❌ A previsão de fim deve ser posterior à previsão de início.")
-                else:
-                    dados_ae = {
-                        "cpf_motorista": cpf_final,
-                        "placa_cavalo": placa_final,
-                        "placa_carreta": placa_carreta_final,
-                        "origem_nome": nome_origem,
-                        "destino_nome": nome_destino,
-                        "cd_cidade_origem": cd_cidade_origem,
-                        "cd_cidade_destino": cd_cidade_destino,
-                        "cnpj_origem": cnpj_origem,
-                        "cnpj_destino": cnpj_destino,
-                        "valor_carga": valor_carga,
-                        "numero_isca": numero_isca,
-                        "previsao_inicio": previsao_inicio_dt,
-                        "previsao_fim": previsao_fim_dt,
-                        "cd_rota": cd_rota_final
-                    }
-                    with st.spinner("Registrando monitoramento..."):
-                        sucesso, msg = services.criar_ae_express(dados_ae, user['empresa_id'], user['id'], modo_simulacao)
-                        if sucesso:
-                            st.success(msg)
-                            # Extrair cd_viagem da mensagem para disponibilizar PDF
-                            import re as _re
-                            _match = _re.search(r'AE\s*#?(\d+)', msg)
-                            if _match:
-                                st.session_state.ae_ultimo_cd_viagem = int(_match.group(1))
-                                st.session_state.ae_ultimo_dados = {
-                                    "cpf_motorista": cpf_digits,
-                                    "nome_motorista": st.session_state.get("ae_mot_nome", ""),
-                                    "placa_cavalo": placa_limpa,
-                                    "placa_carreta": placa_carreta_final,
-                                    "origem": nome_origem,
-                                    "destino": nome_destino,
-                                    "valor_carga": valor_carga,
-                                    "produto": "E-commerce",
-                                    "numero_isca": numero_isca,
-                                    "previsao_inicio": str(previsao_inicio_dt),
-                                    "previsao_fim": str(previsao_fim_dt),
-                                    "status": "Ativa (Simulada)" if modo_simulacao else "Ativa",
-                                }
-                            st.session_state.ae_mot_nome = None
-                            st.session_state.ae_veic_tipo = None
-                            st.session_state.ae_carreta_tipo = None
-                            st.session_state.ae_buscou_mot = False
-                            st.session_state.ae_buscou_veic = False
-                            st.session_state.ae_buscou_carreta = False
-                            if "ae_rotas_opcoes" in st.session_state:
-                                del st.session_state.ae_rotas_opcoes
-                            st.rerun()
-                        else:
-                            st.error(msg)
-
-        # ── Download PDF da última AE criada ──
-        if "ae_ultimo_cd_viagem" in st.session_state and st.session_state.ae_ultimo_cd_viagem:
-            cd_v = st.session_state.ae_ultimo_cd_viagem
-            st.markdown(f"""<div style='background:linear-gradient(135deg,#1B4332,#2D6A4F);
-                padding:16px 20px; border-radius:8px; border-left:6px solid #4CAF50; margin-top:16px; margin-bottom:16px;'>
-                <span style='color:#D8F3DC;font-size:13px;font-weight:bold;letter-spacing:1px;'>✅ AE CRIADA COM SUCESSO</span><br>
-                <span style='color:white;font-weight:bold;font-size:18px;'>AE #{cd_v} — Pronta para download</span>
-            </div>""", unsafe_allow_html=True)
-            col_dl, col_cl = st.columns([3, 1])
-            with col_dl:
-                if st.button("📄 Gerar PDF da AE", key="btn_pdf_ae_topo", use_container_width=True, type="primary"):
-                    with st.spinner("Gerando PDF..."):
-                        pdf_bytes = services.gerar_pdf_ae(
-                            cd_v, st.session_state.get("ae_ultimo_dados", {})
-                        )
-                    if pdf_bytes:
-                        st.download_button(
-                            label=f"⬇️ Baixar AE #{cd_v}.pdf",
-                            data=pdf_bytes,
-                            file_name=f"AE_{cd_v}_BBMRisk.pdf",
-                            mime="application/pdf",
-                            use_container_width=True,
-                            key="dl_pdf_ae_topo"
-                        )
-                    else:
-                        st.error("❌ Não foi possível gerar o PDF. Tente novamente.")
-            with col_cl:
-                if st.button("✖ Fechar", key="btn_fechar_pdf_banner", use_container_width=True):
-                    del st.session_state.ae_ultimo_cd_viagem
-                    del st.session_state.ae_ultimo_dados
-                    st.rerun()
-
-    with col_hist:
-        st.subheader("📊 Viagens & Monitoramentos Ativos")
-
-        busca_ae = st.text_input("🔎 Filtrar por CPF, Placa, Isca ou Cód. Viagem")
-
-        viagens = services.listar_viagens(user['empresa_id'], busca_ae)
-
-        if not viagens:
-            st.info("Nenhum monitoramento registrado recentemente.")
-        else:
-            for v in viagens:
-                status = v['status']
-                if "Cancelada" in status:
-                    status_badge = '<span class="badge badge-perigo">CANCELADA</span>'
-                elif "Baixada" in status:
-                    status_badge = '<span class="badge" style="background-color: #6c757d; color: white;">CONCLUÍDA</span>'
-                else:
-                    status_badge = '<span class="badge badge-sucesso">EM MONITORAMENTO</span>'
-
-                titulo_exp = f"🚚 AE #{v['cd_viagem']} | {v['placa_cavalo']} -> {v['destino'].split('(')[0]} | {status}"
-
-                with st.expander(titulo_exp):
-                    col_det, col_acoes = st.columns([2, 1])
-
-                    with col_det:
-                        st.markdown(f"**Motorista:** {v['nome_motorista']} ({v['cpf_motorista']})")
-                        st.markdown(f"**Veículos:** Cavalo: `{v['placa_cavalo']}`" + (f" | Carreta: `{v['placa_carreta']}`" if v['placa_carreta'] else ""))
-                        st.markdown(f"**Rota:** {v['origem']} ➔ {v['destino']}")
-                        st.markdown(f"**Produto:** {v['produto']} | **Valor:** R$ {v['valor_carga']:,.2f}")
-                        isca_str = f"`{v['numero_isca']}`" if v.get('numero_isca') else "_Não possui_"
-                        st.markdown(f"**Número da Isca:** {isca_str}")
-                        prev_fim_str = v.get('previsao_fim') or "_Não informada_"
-                        st.markdown(f"**Previsão de Início:** {v['previsao_inicio']}")
-                        st.markdown(f"**Previsão de Fim:** {prev_fim_str}")
-                        st.markdown(f"**Código de Programação Opentech:** `{v['cd_programacao']}`")
-
-                    with col_acoes:
-                        st.markdown(f"<div style='text-align: center; margin-bottom: 10px;'>{status_badge}</div>", unsafe_allow_html=True)
-
-                        # Botão de PDF sempre disponível
-                        if st.button("📄 Visualizar AE", key=f"pdf_{v['id']}", use_container_width=True):
-                            st.session_state[f"pdf_view_{v['id']}"] = True
-
-                        if st.session_state.get(f"pdf_view_{v['id']}", False):
-                            with st.spinner("Gerando PDF..."):
-                                dados_loc = {
-                                    "cd_programacao": v.get("cd_programacao"),
-                                    "nome_motorista":  v.get("nome_motorista"),
-                                    "cpf_motorista":   v.get("cpf_motorista"),
-                                    "placa_cavalo":    v.get("placa_cavalo"),
-                                    "placa_carreta":   v.get("placa_carreta"),
-                                    "origem":          v.get("origem"),
-                                    "destino":         v.get("destino"),
-                                    "produto":         v.get("produto"),
-                                    "valor_carga":     v.get("valor_carga"),
-                                    "numero_isca":     v.get("numero_isca"),
-                                    "previsao_inicio": v.get("previsao_inicio"),
-                                    "previsao_fim":    v.get("previsao_fim"),
-                                    "status":          v.get("status"),
-                                }
-                                pdf_bytes = services.gerar_pdf_ae(v['cd_viagem'], dados_loc)
-                            if pdf_bytes:
-                                st.download_button(
-                                    label=f"⬇️ Confirmar Download AE #{v['cd_viagem']}",
-                                    data=pdf_bytes,
-                                    file_name=f"AE_{v['cd_viagem']}_BBMRisk.pdf",
-                                    mime="application/pdf",
-                                    use_container_width=True,
-                                    key=f"dl_{v['id']}"
-                                )
-                            else:
-                                st.error("Falha ao gerar PDF.")
-
-                        if st.button("🔄 Relançar AE", key=f"relancar_{v['id']}", use_container_width=True, on_click=_callback_relancar, args=(v,)):
-                            pass
+                with col_acoes:
+                    st.markdown(status_badge, unsafe_allow_html=True)
+                    st.write("")
+                    if st.button("Baixar PDF", key=f"btn_pdf_hist_{v['cd_viagem']}", use_container_width=True):
+                        with st.spinner("Gerando PDF..."):
+                            pdf_bytes = services.gerar_pdf_ae(v['cd_viagem'], v)
+                        if pdf_bytes:
+                            st.download_button(label="⬇️ Salvar", data=pdf_bytes, file_name=f"AE_{v['cd_viagem']}_BBMRisk.pdf", mime="application/pdf", use_container_width=True, key=f"dl_pdf_hist_{v['cd_viagem']}")
 
 # --- EXECUÇÃO ---
 qp = st.query_params
