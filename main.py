@@ -249,7 +249,7 @@ def render_home(user):
             
     with col2:
         st.button(
-            "📝\nMONITORAMENTO",
+            "📝\nSOLICITAR AUTORIZAÇÃO DE EMBARQUE",
             key="btn_monitoramento",
             use_container_width=True,
             on_click=set_menu,
