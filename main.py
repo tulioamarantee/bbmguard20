@@ -1147,7 +1147,7 @@ def render_ae_express(user):
         st.divider()
 
         # ── Formulário para Carga, Isca, Datas e Submissão ──
-        with st.form("ae_express_form", clear_on_submit=False):
+        with st.form("ae_express_form", clear_on_submit=False, enter_to_submit=False):
             col_rota_api, col_rota_man = st.columns([2, 1])
             with col_rota_api:
                 rota_selecionada = st.selectbox("Selecione a Rota Oficial", list(st.session_state.ae_rotas_opcoes.keys()))
