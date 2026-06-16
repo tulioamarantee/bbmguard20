@@ -1492,7 +1492,7 @@ def sincronizar_status_viagens(empresa_id):
       <tem:cdcliente>{soap_client.CD_CLIENTE}</tem:cdcliente>
       <tem:datainicial>{dt_i}</tem:datainicial>
       <tem:datafinal>{dt_f}</tem:datafinal>
-      <tem:tipo>1</tem:tipo>
+      <tem:tipo>0</tem:tipo>
       <tem:placa></tem:placa>
       <tem:cdDest>0</tem:cdDest>
       <tem:tipoOperacao>0</tem:tipoOperacao>
@@ -1536,6 +1536,12 @@ def listar_viagens(empresa_id, busca=""):
     """
     Lista as viagens/AEs cadastradas no histórico local.
     """
+    try:
+        sincronizar_status_viagens(empresa_id)
+    except Exception as e:
+        import logging
+        logging.error(f"Erro ao sincronizar viagens: {e}")
+
     conn = get_connection()
     cursor = conn.cursor()
     query = "SELECT * FROM viagens WHERE empresa_id = %s"
