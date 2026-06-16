@@ -223,12 +223,12 @@ def render_cadastro_consulta(user):
     st.header("📋 Cadastro e Consulta")
     st.caption("Gerenciamento integrado de Motoristas e Veículos.")
     
-    tab1, tab2 = st.tabs(["🚦 Portaria (Motoristas)", "🚚 Mapa (Veículos)"])
+    escolha = st.radio("Módulo", ["🚦 Portaria (Motoristas)", "🚚 Mapa (Veículos)"], horizontal=True, label_visibility="collapsed")
+    st.divider()
     
-    with tab1:
+    if escolha == "🚦 Portaria (Motoristas)":
         render_motoristas(user)
-    
-    with tab2:
+    else:
         render_veiculos(user)
 
 def render_torre_controle(user, fullscreen=False):
@@ -251,7 +251,7 @@ def render_torre_controle(user, fullscreen=False):
         
     if not viagens:
         st.info("Nenhuma viagem ativa no momento.")
-        return
+        viagens = []
         
     import pandas as pd
     import folium
@@ -270,7 +270,11 @@ def render_torre_controle(user, fullscreen=False):
             st.rerun()
             
     with col1:
-        if v_map:
+        if not v_map:
+            # Mapa do Brasil padrão
+            center_lat, center_lon = -14.2350, -51.9253
+            m = folium.Map(location=[center_lat, center_lon], zoom_start=4)
+        else:
             # Calcular o centro do mapa
             lats = [float(v['lat']) for v in v_map]
             lons = [float(v['lon']) for v in v_map]
@@ -293,11 +297,9 @@ def render_torre_controle(user, fullscreen=False):
                     icon=icon
                 ).add_to(m)
                 
-            # Exibe o mapa. Na tela cheia, podemos deixar mais largo.
-            map_height = 800 if fullscreen else 500
-            st_folium(m, use_container_width=True, height=map_height, returned_objects=[])
-        else:
-            st.warning("Não foi possível obter a geolocalização dos veículos.")
+        # Exibe o mapa. Na tela cheia, podemos deixar mais largo.
+        map_height = 800 if fullscreen else 500
+        st_folium(m, use_container_width=True, height=map_height, returned_objects=[])
 
     if not fullscreen:
         st.markdown("### 🚚 Resumo das Posições")
