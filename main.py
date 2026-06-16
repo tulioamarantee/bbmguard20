@@ -371,8 +371,11 @@ def render_home(user):
         
     html_cards += "</div>"
     
-    st.markdown(html_cards, unsafe_allow_html=True)
-
+    import re
+    # Remove todas as quebras de linha e espaços excedentes que acionam o bloco de código do Markdown
+    html_cards_clean = re.sub(r'\s*\n\s*', ' ', html_cards)
+    
+    st.markdown(html_cards_clean, unsafe_allow_html=True)
 def render_cadastro_consulta(user):
     st.header("📋 Cadastro e Consulta")
     st.caption("Gerenciamento integrado de Motoristas e Veículos.")
