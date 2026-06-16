@@ -2234,8 +2234,8 @@ def listar_viagens_ativas_com_coordenadas(empresa_id):
         SELECT v.*, m.nome as nome_mot_bd 
         FROM viagens v 
         LEFT JOIN motoristas m ON v.cpf_motorista = m.cpf AND v.empresa_id = m.empresa_id
-        WHERE v.empresa_id = %s AND v.status LIKE '%Ativa%'
-    ''', (empresa_id,))
+        WHERE v.empresa_id = %s AND v.status LIKE %s
+    ''', (empresa_id, '%Ativa%'))
     viagens_ativas = [dict(row) for row in cursor.fetchall()]
     conn.close()
 
