@@ -899,3 +899,66 @@ def consultar_coordenadas_veiculo(placa):
         except ValueError:
             return None
     return None
+
+def listar_aes_em_andamento():
+    """Consulta o SIL via sgrListaAE buscando AEs dos últimos 7 dias e retorna as que estão EM ANDAMENTO."""
+    chave = sgr_login()
+    if not chave:
+        return []
+
+    from datetime import datetime, timedelta
+    dt_final = datetime.now()
+    dt_inicial = dt_final - timedelta(days=7)
+    
+    dt_f = dt_final.strftime("%Y-%m-%dT%H:%M:%S")
+    dt_i = dt_inicial.strftime("%Y-%m-%dT%H:%M:%S")
+
+    body = f"""<?xml version="1.0" encoding="utf-8"?>
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:tem="http://tempuri.org/">
+  <soapenv:Header/>
+  <soapenv:Body>
+    <tem:sgrListaAE>
+      <tem:chaveacesso>{chave}</tem:chaveacesso>
+      <tem:cdpas>{CD_PAS}</tem:cdpas>
+      <tem:cdcliente>{CD_CLIENTE}</tem:cdcliente>
+      <tem:datainicial>{dt_i}</tem:datainicial>
+      <tem:datafinal>{dt_f}</tem:datafinal>
+      <tem:tipo>1</tem:tipo>
+      <tem:placa></tem:placa>
+      <tem:cdDest>0</tem:cdDest>
+      <tem:tipoOperacao>0</tem:tipoOperacao>
+      <tem:cdCidOrig>0</tem:cdCidOrig>
+      <tem:cdCidDest>0</tem:cdCidDest>
+      <tem:dtPrevisaoChegada></tem:dtPrevisaoChegada>
+      <tem:cdTransp>0</tem:cdTransp>
+    </tem:sgrListaAE>
+  </soapenv:Body>
+</soapenv:Envelope>"""
+
+    resp = post_soap("sgrListaAE", body)
+    if not resp:
+        return []
+
+    import re
+    matches = re.findall(r'<sgrTB.*?>.*?</sgrTB>', resp, re.DOTALL)
+    
+    ativas = []
+    for m in matches:
+        sit = re.search(r'<SITUACAO>(.*?)</SITUACAO>', m)
+        if sit and 'ANDAMENTO' in sit.group(1).upper():
+            # Extrair os campos
+            cd_viag = re.search(r'<CDVIAG>(.*?)</CDVIAG>', m)
+            placa = re.search(r'<NRPLACACAVALO>(.*?)</NRPLACACAVALO>', m)
+            motorista = re.search(r'<MOTORISTA1>(.*?)</MOTORISTA1>', m)
+            origem = re.search(r'<DSCIDORIGEM>(.*?)</DSCIDORIGEM>', m)
+            destino = re.search(r'<DSCIDDESTINO>(.*?)</DSCIDDESTINO>', m)
+            
+            ativas.append({
+                "cd_viagem": cd_viag.group(1).strip() if cd_viag else "N/A",
+                "placa_cavalo": placa.group(1).strip() if placa else "",
+                "nome_mot_bd": motorista.group(1).strip() if motorista else "N/A",
+                "origem": origem.group(1).strip() if origem else "N/A",
+                "destino": destino.group(1).strip() if destino else "N/A"
+            })
+            
+    return ativas

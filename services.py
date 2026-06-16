@@ -2225,23 +2225,18 @@ def extrair_dados_texto(texto):
 @st.cache_data(ttl=300, show_spinner=False)
 def listar_viagens_ativas_com_coordenadas(empresa_id):
     """
-    Busca viagens ativas e consulta a coordenada no SIL.
+    Busca viagens "EM ANDAMENTO" diretamente no SIL (Opentech).
     Tem cache de 5 minutos (300s) para não sobrecarregar a API.
     """
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute('''
-        SELECT v.*, m.nome as nome_mot_bd 
-        FROM viagens v 
-        LEFT JOIN motoristas m ON v.cpf_motorista = m.cpf AND v.empresa_id = m.empresa_id
-        WHERE v.empresa_id = %s AND v.status LIKE %s
-    ''', (empresa_id, '%Ativa%'))
-    viagens_ativas = [dict(row) for row in cursor.fetchall()]
-    conn.close()
+    # 1. Puxar do SIL ao invés do Banco Local
+    viagens_ativas = soap_client.listar_aes_em_andamento()
 
     resultado = []
     for v in viagens_ativas:
         placa = v['placa_cavalo']
+        if not placa:
+            continue
+            
         coords = soap_client.consultar_coordenadas_veiculo(placa)
         
         v_dict = dict(v)
@@ -2249,13 +2244,13 @@ def listar_viagens_ativas_com_coordenadas(empresa_id):
             v_dict['lat'] = coords['lat']
             v_dict['lon'] = coords['lon']
             v_dict['data_posicao'] = coords['data_posicao']
-            v_dict['referencia'] = coords['referencia']
             v_dict['cidade_posicao'] = coords['cidade']
         else:
             v_dict['lat'] = None
             v_dict['lon'] = None
+            v_dict['data_posicao'] = None
+            v_dict['cidade_posicao'] = None
             
         resultado.append(v_dict)
         
     return resultado
-
