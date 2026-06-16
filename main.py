@@ -991,8 +991,7 @@ ESTADOS_BR = [
     "PA","PB","PE","PI","PR","RJ","RN","RO","RR","RS","SC","SE","SP","TO"
 ]
 
-@st.dialog("➕ Novo Monitoramento", width="large")
-def modal_criar_ae(user):
+def render_form_criar_ae(user):
     import services
     st.caption("Cadastre e ative uma Autorização de Embarque (AE) na Opentech usando o mínimo de dados.")
 
@@ -1409,6 +1408,7 @@ def modal_criar_ae(user):
                         st.session_state.ae_buscou_carreta = False
                         if "ae_rotas_opcoes" in st.session_state:
                             del st.session_state.ae_rotas_opcoes
+                        st.session_state.ae_form_open = False
                         st.success(msg)
                         st.rerun()
                     else:
@@ -1455,8 +1455,19 @@ def render_ae_express(user):
         st.caption("Visualize as autorizações de embarque (AE) criadas ou inicie uma nova.")
     with col_topo2:
         st.write("")
-        if st.button("➕ Novo Monitoramento", type="primary", use_container_width=True):
-            modal_criar_ae(user)
+        if "ae_form_open" not in st.session_state:
+            st.session_state.ae_form_open = False
+            
+        texto_btn = "✖ Fechar Formulário" if st.session_state.ae_form_open else "➕ Novo Monitoramento"
+        if st.button(texto_btn, type="secondary" if st.session_state.ae_form_open else "primary", use_container_width=True):
+            st.session_state.ae_form_open = not st.session_state.ae_form_open
+            st.rerun()
+
+    if st.session_state.ae_form_open:
+        with st.container(border=True):
+            st.subheader("➕ Novo Monitoramento")
+            render_form_criar_ae(user)
+            st.divider()
 
     busca_ae = st.text_input("🔎 Filtrar por CPF, Placa, Isca ou Cód. Viagem")
 
