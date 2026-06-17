@@ -713,9 +713,10 @@ def modal_cadastro_sil(user):
     st.divider()
     st.subheader("📁 Importação em Massa")
     uploaded_file = st.file_uploader("Arquivo Excel, PDF ou TXT com CPFs", type=["xlsx", "xls", "pdf", "txt"], key="uploader_import_cpfs")
-    if uploaded_file:
-        submit_import = st.button("🚀 Iniciar Importação", use_container_width=True, type="primary")
-        if submit_import:
+    
+    submit_import = st.button("🚀 Iniciar Importação", use_container_width=True, type="primary", key="btn_iniciar_import_cpfs")
+    if submit_import:
+        if uploaded_file:
             with st.spinner("Processando..."):
                 ext = uploaded_file.name.split('.')[-1].lower()
                 if ext == 'pdf':
@@ -731,6 +732,8 @@ def modal_cadastro_sil(user):
                         st.markdown(msg)
                 else: 
                     st.error(msg)
+        else:
+            st.warning("Por favor, selecione um arquivo válido antes de iniciar a importação.")
             
     st.divider()
     if st.button("Fechar", key="btn_fechar_modal_mot", use_container_width=True):
@@ -960,9 +963,10 @@ def modal_cadastro_veiculo(user):
     st.divider()
     st.subheader("📁 Importação em Massa (Placas)")
     uploaded_file = st.file_uploader("Arquivo Excel, PDF ou TXT com Placas", type=["xlsx", "xls", "pdf", "txt"], key="uploader_import_veiculos")
-    if uploaded_file:
-        submit_import = st.button("🚀 Iniciar Importação de Veículos", use_container_width=True, type="primary")
-        if submit_import:
+    
+    submit_import = st.button("🚀 Iniciar Importação de Veículos", use_container_width=True, type="primary", key="btn_iniciar_import_veic")
+    if submit_import:
+        if uploaded_file:
             with st.spinner("Processando..."):
                 ext = uploaded_file.name.split('.')[-1].lower()
                 if ext == 'pdf':
@@ -978,6 +982,8 @@ def modal_cadastro_veiculo(user):
                         st.markdown(msg)
                 else: 
                     st.error(msg)
+        else:
+            st.warning("Por favor, selecione um arquivo válido antes de iniciar a importação.")
             
     st.divider()
     if st.button("Fechar", key="btn_fechar_modal_veic", use_container_width=True):
