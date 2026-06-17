@@ -357,16 +357,42 @@ def importar_motoristas_excel(file, empresa_id, usuario_nome):
         if not cpfs_limpos:
             return False, "Nenhum CPF válido encontrado no Excel."
             
-        # Consultar Opentech em paralelo usando ThreadPoolExecutor
+        # Consultar Opentech em paralelo usando ThreadPoolExecutor com progresso visual
         resultados_opentech = {}
         def consultar_paralelo(c):
             return c, consultar_opentech(c, "TOKEN", usuario_nome)
             
+        import concurrent.futures
         with ThreadPoolExecutor(max_workers=10) as executor:
-            futures = [executor.submit(consultar_paralelo, c) for c in cpfs_limpos]
-            for future in futures:
-                c, res = future.result()
-                resultados_opentech[c] = res
+            futures = {executor.submit(consultar_paralelo, c): c for c in cpfs_limpos}
+            total = len(cpfs_limpos)
+            completados = 0
+            
+            progresso_placeholder = st.empty()
+            barra_progresso = st.progress(0.0)
+            
+            for future in concurrent.futures.as_completed(futures):
+                c = futures[future]
+                try:
+                    c, res = future.result()
+                    resultados_opentech[c] = res
+                except Exception as e:
+                    resultados_opentech[c] = {"nome": "Erro", "status": f"Falha: {str(e)}", "data_consulta": "", "validade": "N/I"}
+                
+                completados += 1
+                barra_progresso.progress(completados / total)
+                
+                gif_url = "https://media.tenor.com/7bZfH9jZ9bYAAAAC/french-bulldog-running.gif"
+                html_progresso = f"""
+                <div style="display: flex; align-items: center; gap: 15px; color: var(--text-color); font-weight: 600; margin-bottom: 10px; padding: 12px; background: rgba(67, 100, 247, 0.05); border-radius: 8px; border-left: 4px solid var(--primary-color); box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                    <img src="{gif_url}" width="45" style="border-radius: 50%; background: transparent; mix-blend-mode: multiply;">
+                    <span>Consultando Opentech: {completados} de {total} CPFs processados...</span>
+                </div>
+                """
+                progresso_placeholder.markdown(html_progresso, unsafe_allow_html=True)
+            
+            progresso_placeholder.empty()
+            barra_progresso.empty()
                 
         # Gravar no Banco de Dados SQLite sequencialmente
         for cpf_limpo in cpfs_limpos:
@@ -474,16 +500,42 @@ def importar_motoristas_pdf(file, empresa_id, usuario_nome):
         
         hoje = datetime.now()
         
-        # Consultar Opentech em paralelo usando ThreadPoolExecutor
+        # Consultar Opentech em paralelo usando ThreadPoolExecutor com progresso visual
         resultados_opentech = {}
         def consultar_paralelo(c):
             return c, consultar_opentech(c, "TOKEN", usuario_nome)
             
+        import concurrent.futures
         with ThreadPoolExecutor(max_workers=10) as executor:
-            futures = [executor.submit(consultar_paralelo, c) for c in cpfs]
-            for future in futures:
-                c, res = future.result()
-                resultados_opentech[c] = res
+            futures = {executor.submit(consultar_paralelo, c): c for c in cpfs}
+            total = len(cpfs)
+            completados = 0
+            
+            progresso_placeholder = st.empty()
+            barra_progresso = st.progress(0.0)
+            
+            for future in concurrent.futures.as_completed(futures):
+                c = futures[future]
+                try:
+                    c, res = future.result()
+                    resultados_opentech[c] = res
+                except Exception as e:
+                    resultados_opentech[c] = {"nome": "Erro", "status": f"Falha: {str(e)}", "data_consulta": "", "validade": "N/I"}
+                
+                completados += 1
+                barra_progresso.progress(completados / total)
+                
+                gif_url = "https://media.tenor.com/7bZfH9jZ9bYAAAAC/french-bulldog-running.gif"
+                html_progresso = f"""
+                <div style="display: flex; align-items: center; gap: 15px; color: var(--text-color); font-weight: 600; margin-bottom: 10px; padding: 12px; background: rgba(67, 100, 247, 0.05); border-radius: 8px; border-left: 4px solid var(--primary-color); box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                    <img src="{gif_url}" width="45" style="border-radius: 50%; background: transparent; mix-blend-mode: multiply;">
+                    <span>Consultando Opentech: {completados} de {total} CPFs processados...</span>
+                </div>
+                """
+                progresso_placeholder.markdown(html_progresso, unsafe_allow_html=True)
+            
+            progresso_placeholder.empty()
+            barra_progresso.empty()
                 
         # Gravar no Banco de Dados SQLite sequencialmente
         for cpf_limpo in cpfs:
@@ -585,16 +637,42 @@ def importar_motoristas_txt(file, empresa_id, usuario_nome):
         
         hoje = datetime.now()
         
-        # Consultar Opentech em paralelo usando ThreadPoolExecutor
+        # Consultar Opentech em paralelo usando ThreadPoolExecutor com progresso visual
         resultados_opentech = {}
         def consultar_paralelo(c):
             return c, consultar_opentech(c, "TOKEN", usuario_nome)
             
+        import concurrent.futures
         with ThreadPoolExecutor(max_workers=10) as executor:
-            futures = [executor.submit(consultar_paralelo, c) for c in cpfs]
-            for future in futures:
-                c, res = future.result()
-                resultados_opentech[c] = res
+            futures = {executor.submit(consultar_paralelo, c): c for c in cpfs}
+            total = len(cpfs)
+            completados = 0
+            
+            progresso_placeholder = st.empty()
+            barra_progresso = st.progress(0.0)
+            
+            for future in concurrent.futures.as_completed(futures):
+                c = futures[future]
+                try:
+                    c, res = future.result()
+                    resultados_opentech[c] = res
+                except Exception as e:
+                    resultados_opentech[c] = {"nome": "Erro", "status": f"Falha: {str(e)}", "data_consulta": "", "validade": "N/I"}
+                
+                completados += 1
+                barra_progresso.progress(completados / total)
+                
+                gif_url = "https://media.tenor.com/7bZfH9jZ9bYAAAAC/french-bulldog-running.gif"
+                html_progresso = f"""
+                <div style="display: flex; align-items: center; gap: 15px; color: var(--text-color); font-weight: 600; margin-bottom: 10px; padding: 12px; background: rgba(67, 100, 247, 0.05); border-radius: 8px; border-left: 4px solid var(--primary-color); box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                    <img src="{gif_url}" width="45" style="border-radius: 50%; background: transparent; mix-blend-mode: multiply;">
+                    <span>Consultando Opentech: {completados} de {total} CPFs processados...</span>
+                </div>
+                """
+                progresso_placeholder.markdown(html_progresso, unsafe_allow_html=True)
+            
+            progresso_placeholder.empty()
+            barra_progresso.empty()
                 
         # Gravar no Banco de Dados SQLite sequencialmente
         for cpf_limpo in cpfs:
@@ -1195,11 +1273,37 @@ def processar_lote_veiculos(placas_encontradas, empresa_id, usuario_nome, origem
     def consultar_paralelo(p):
         return p, consultar_opentech_veiculo(p, "TOKEN", usuario_nome)
         
+    import concurrent.futures
     with ThreadPoolExecutor(max_workers=10) as executor:
-        futures = [executor.submit(consultar_paralelo, p) for p in placas_limpas]
-        for future in futures:
-            p, res = future.result()
-            resultados_opentech[p] = res
+        futures = {executor.submit(consultar_paralelo, p): p for p in placas_limpas}
+        total = len(placas_limpas)
+        completados = 0
+        
+        progresso_placeholder = st.empty()
+        barra_progresso = st.progress(0.0)
+        
+        for future in concurrent.futures.as_completed(futures):
+            p = futures[future]
+            try:
+                p, res = future.result()
+                resultados_opentech[p] = res
+            except Exception as e:
+                resultados_opentech[p] = {"placa": p, "status": f"Falha: {str(e)}", "data_consulta": "", "validade": "N/I"}
+            
+            completados += 1
+            barra_progresso.progress(completados / total)
+            
+            gif_url = "https://media.tenor.com/7bZfH9jZ9bYAAAAC/french-bulldog-running.gif"
+            html_progresso = f"""
+            <div style="display: flex; align-items: center; gap: 15px; color: var(--text-color); font-weight: 600; margin-bottom: 10px; padding: 12px; background: rgba(67, 100, 247, 0.05); border-radius: 8px; border-left: 4px solid var(--primary-color); box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                <img src="{gif_url}" width="45" style="border-radius: 50%; background: transparent; mix-blend-mode: multiply;">
+                <span>Consultando Opentech: {completados} de {total} placas processadas...</span>
+            </div>
+            """
+            progresso_placeholder.markdown(html_progresso, unsafe_allow_html=True)
+            
+        progresso_placeholder.empty()
+        barra_progresso.empty()
             
     for placa in placas_limpas:
         res = resultados_opentech[placa]
