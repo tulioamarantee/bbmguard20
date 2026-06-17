@@ -1467,7 +1467,10 @@ def modal_criar_ae(user):
                         )
                     
                     placeholder.empty()
-                    sucesso, msg = future.result()
+                    try:
+                        sucesso, msg = future.result()
+                    except Exception as ex:
+                        sucesso, msg = False, f"Erro inesperado no processamento da thread: {str(ex)}"
                     if sucesso:
                         import re as _re
                         _match = _re.search(r'AE\s*#?(\d+)', msg)
