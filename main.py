@@ -712,11 +712,10 @@ def modal_cadastro_sil(user):
     st.divider()
     st.divider()
     st.subheader("📁 Importação em Massa")
-    with st.form("form_import_mass_cpfs", clear_on_submit=True):
-        uploaded_file = st.file_uploader("Arquivo Excel, PDF ou TXT com CPFs", type=["xlsx", "xls", "pdf", "txt"])
-        submit_import = st.form_submit_button("🚀 Iniciar Importação", use_container_width=True)
-        
-        if submit_import and uploaded_file:
+    uploaded_file = st.file_uploader("Arquivo Excel, PDF ou TXT com CPFs", type=["xlsx", "xls", "pdf", "txt"], key="uploader_import_cpfs")
+    if uploaded_file:
+        submit_import = st.button("🚀 Iniciar Importação", use_container_width=True, type="primary")
+        if submit_import:
             with st.spinner("Processando..."):
                 ext = uploaded_file.name.split('.')[-1].lower()
                 if ext == 'pdf':
@@ -732,8 +731,6 @@ def modal_cadastro_sil(user):
                         st.markdown(msg)
                 else: 
                     st.error(msg)
-        elif submit_import and not uploaded_file:
-            st.warning("Selecione um arquivo antes de iniciar a importação.")
             
     st.divider()
     if st.button("Fechar", key="btn_fechar_modal_mot", use_container_width=True):
@@ -962,11 +959,10 @@ def modal_cadastro_veiculo(user):
     st.divider()
     st.divider()
     st.subheader("📁 Importação em Massa (Placas)")
-    with st.form("form_import_mass_veiculos", clear_on_submit=True):
-        uploaded_file = st.file_uploader("Arquivo Excel, PDF ou TXT com Placas", type=["xlsx", "xls", "pdf", "txt"])
-        submit_import = st.form_submit_button("🚀 Iniciar Importação de Veículos", use_container_width=True)
-        
-        if submit_import and uploaded_file:
+    uploaded_file = st.file_uploader("Arquivo Excel, PDF ou TXT com Placas", type=["xlsx", "xls", "pdf", "txt"], key="uploader_import_veiculos")
+    if uploaded_file:
+        submit_import = st.button("🚀 Iniciar Importação de Veículos", use_container_width=True, type="primary")
+        if submit_import:
             with st.spinner("Processando..."):
                 ext = uploaded_file.name.split('.')[-1].lower()
                 if ext == 'pdf':
@@ -982,8 +978,6 @@ def modal_cadastro_veiculo(user):
                         st.markdown(msg)
                 else: 
                     st.error(msg)
-        elif submit_import and not uploaded_file:
-            st.warning("Selecione um arquivo antes de iniciar a importação.")
             
     st.divider()
     if st.button("Fechar", key="btn_fechar_modal_veic", use_container_width=True):
