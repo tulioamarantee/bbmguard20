@@ -1358,151 +1358,150 @@ def modal_criar_ae(user):
     st.divider()
 
     # ── Formulário para Carga, Isca, Datas e Submissão ──
-    with st.form("ae_express_form", clear_on_submit=False, enter_to_submit=False):
-        col_rota_api, col_rota_man = st.columns([2, 1])
-        with col_rota_api:
-            rota_selecionada = st.selectbox("Selecione a Rota Oficial", list(st.session_state.ae_rotas_opcoes.keys()))
-            cd_rota_api = st.session_state.ae_rotas_opcoes[rota_selecionada]
-        with col_rota_man:
-            cd_rota_manual = st.text_input("Código da Rota Manual", placeholder="Ex: 86147", help="Se a API não achar rotas e o código -1 for rejeitado, digite o código exato aqui.")
+    col_rota_api, col_rota_man = st.columns([2, 1])
+    with col_rota_api:
+        rota_selecionada = st.selectbox("Selecione a Rota Oficial", list(st.session_state.ae_rotas_opcoes.keys()))
+        cd_rota_api = st.session_state.ae_rotas_opcoes[rota_selecionada]
+    with col_rota_man:
+        cd_rota_manual = st.text_input("Código da Rota Manual", placeholder="Ex: 86147", help="Se a API não achar rotas e o código -1 for rejeitado, digite o código exato aqui.")
 
-        if cd_rota_manual and cd_rota_manual.strip().isdigit() and cd_rota_manual.strip() != "-1":
-            cd_rota_final = int(cd_rota_manual.strip())
-            st.info(f"Usando código de rota manual: {cd_rota_final}")
+    if cd_rota_manual and cd_rota_manual.strip().isdigit() and cd_rota_manual.strip() != "-1":
+        cd_rota_final = int(cd_rota_manual.strip())
+        st.info(f"Usando código de rota manual: {cd_rota_final}")
+    else:
+        cd_rota_final = cd_rota_api
+
+    cnpj_origem = ""
+    cnpj_destino = ""
+
+    if "ae_valor_carga_str" not in st.session_state:
+        st.session_state.ae_valor_carga_str = "50.000,00"
+
+    valor_carga_str = st.text_input("Valor da Carga (R$)", key="ae_valor_carga_str")
+    try:
+        import re as _re
+        v_str = valor_carga_str.replace("R$", "").strip()
+        if "," in v_str:
+            v_limpo = v_str.replace(".", "").replace(",", ".")
         else:
-            cd_rota_final = cd_rota_api
-
-        cnpj_origem = ""
-        cnpj_destino = ""
-
-        if "ae_valor_carga_str" not in st.session_state:
-            st.session_state.ae_valor_carga_str = "50.000,00"
-
-        valor_carga_str = st.text_input("Valor da Carga (R$)", key="ae_valor_carga_str")
-        try:
-            import re as _re
-            v_str = valor_carga_str.replace("R$", "").strip()
-            if "," in v_str:
-                v_limpo = v_str.replace(".", "").replace(",", ".")
+            if _re.match(r"^\d+\.\d{1,2}$", v_str):
+                v_limpo = v_str
             else:
-                if _re.match(r"^\d+\.\d{1,2}$", v_str):
-                    v_limpo = v_str
+                v_limpo = v_str.replace(".", "")
+        valor_carga = float(v_limpo)
+    except Exception:
+        valor_carga = 50000.0
+
+    st.caption("ℹ️ **Produto fixado:** E-commerce")
+    numero_isca = st.text_input("Número da Isca (Opcional)", placeholder="Ex: ISCA998877", key="ae_numero_isca")
+
+    col_d_ini, col_h_ini = st.columns(2)
+    with col_d_ini:
+        data_prev_ini = st.date_input("Previsão de Início", datetime.now().date(), key="d_ini")
+    with col_h_ini:
+        hora_prev_ini = st.time_input("Hora de Início", datetime.now().time(), key="h_ini")
+    previsao_inicio_dt = datetime.combine(data_prev_ini, hora_prev_ini)
+
+    col_d_fim, col_h_fim = st.columns(2)
+    with col_d_fim:
+        data_prev_fim = st.date_input("Previsão de Fim", datetime.now().date() + timedelta(days=1), key="d_fim")
+    with col_h_fim:
+        hora_prev_fim = st.time_input("Hora de Fim", datetime.now().time(), key="h_fim")
+    previsao_fim_dt = datetime.combine(data_prev_fim, hora_prev_fim)
+
+    if user.get('role', '').lower().startswith('admin'):
+        modo_simulacao = st.checkbox("Modo de Simulação (Recomendado para Testes)", value=True)
+    else:
+        modo_simulacao = False
+
+    submit_ae = st.button("🚀 Iniciar Monitoramento de Viagem", key="btn_submit_ae_express", use_container_width=True, type="primary")
+
+    if submit_ae:
+        cpf_final  = st.session_state.get("ae_cpf", "")
+        placa_final = st.session_state.get("ae_placa", "")
+        placa_carreta_final = st.session_state.get("ae_placa_carreta", "")
+        cpf_digits  = ''.join(filter(str.isdigit, cpf_final))
+        placa_limpa = placa_final.replace("-", "").strip()
+
+        if not cpf_digits or len(cpf_digits) < 3:
+            st.error("⚠️ O CPF do motorista é obrigatório.")
+        elif len(placa_limpa) != 7:
+            st.error("⚠️ A placa do cavalo é obrigatória e deve ter 7 dígitos.")
+        elif previsao_fim_dt <= previsao_inicio_dt:
+            st.error("❌ A previsão de fim deve ser posterior à previsão de início.")
+        else:
+            dados_ae = {
+                "cpf_motorista": cpf_final,
+                "placa_cavalo": placa_final,
+                "placa_carreta": placa_carreta_final,
+                "origem_nome": nome_origem,
+                "destino_nome": nome_destino,
+                "cd_cidade_origem": cd_cidade_origem,
+                "cd_cidade_destino": cd_cidade_destino,
+                "cnpj_origem": cnpj_origem,
+                "cnpj_destino": cnpj_destino,
+                "valor_carga": valor_carga,
+                "numero_isca": numero_isca,
+                "previsao_inicio": previsao_inicio_dt,
+                "previsao_fim": previsao_fim_dt,
+                "cd_rota": cd_rota_final
+            }
+            import concurrent.futures
+            import time
+
+            with st.spinner("Registrando monitoramento..."):
+                executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+                future = executor.submit(services.criar_ae_express, dados_ae, user['empresa_id'], user['id'], modo_simulacao)
+                
+                placeholder = st.empty()
+                segundos = 0
+                while not future.done():
+                    time.sleep(1)
+                    segundos += 1
+                    placeholder.markdown(
+                        f"<div style='text-align: center; color: #90a4ae; font-size: 0.9rem; font-weight: 600; margin-top: 10px; margin-bottom: 10px;'>"
+                        f"⏳ Aguardando retorno da Opentech... ({segundos}s / limite 180s)"
+                        f"</div>",
+                        unsafe_allow_html=True
+                    )
+                
+                placeholder.empty()
+                try:
+                    sucesso, msg = future.result()
+                except Exception as ex:
+                    sucesso, msg = False, f"Erro inesperado no processamento da thread: {str(ex)}"
+                if sucesso:
+                    import re as _re
+                    _match = _re.search(r'AE\s*#?(\d+)', msg)
+                    if _match:
+                        st.session_state.ae_ultimo_cd_viagem = int(_match.group(1))
+                        st.session_state.ae_ultimo_dados = {
+                            "cpf_motorista": cpf_digits,
+                            "nome_motorista": st.session_state.get("ae_mot_nome", ""),
+                            "placa_cavalo": placa_limpa,
+                            "placa_carreta": placa_carreta_final,
+                            "origem": nome_origem,
+                            "destino": nome_destino,
+                            "valor_carga": valor_carga,
+                            "produto": "E-commerce",
+                            "numero_isca": numero_isca,
+                            "previsao_inicio": str(previsao_inicio_dt),
+                            "previsao_fim": str(previsao_fim_dt),
+                            "status": "Ativa (Simulada)" if modo_simulacao else "Ativa",
+                        }
+                    st.session_state.ae_mot_nome = None
+                    st.session_state.ae_veic_tipo = None
+                    st.session_state.ae_carreta_tipo = None
+                    st.session_state.ae_buscou_mot = False
+                    st.session_state.ae_buscou_veic = False
+                    st.session_state.ae_buscou_carreta = False
+                    if "ae_rotas_opcoes" in st.session_state:
+                        del st.session_state.ae_rotas_opcoes
+                    st.session_state.ae_form_open = False
+                    st.success(msg)
+                    st.rerun()
                 else:
-                    v_limpo = v_str.replace(".", "")
-            valor_carga = float(v_limpo)
-        except Exception:
-            valor_carga = 50000.0
-
-        st.caption("ℹ️ **Produto fixado:** E-commerce")
-        numero_isca = st.text_input("Número da Isca (Opcional)", placeholder="Ex: ISCA998877", key="ae_numero_isca")
-
-        col_d_ini, col_h_ini = st.columns(2)
-        with col_d_ini:
-            data_prev_ini = st.date_input("Previsão de Início", datetime.now().date(), key="d_ini")
-        with col_h_ini:
-            hora_prev_ini = st.time_input("Hora de Início", datetime.now().time(), key="h_ini")
-        previsao_inicio_dt = datetime.combine(data_prev_ini, hora_prev_ini)
-
-        col_d_fim, col_h_fim = st.columns(2)
-        with col_d_fim:
-            data_prev_fim = st.date_input("Previsão de Fim", datetime.now().date() + timedelta(days=1), key="d_fim")
-        with col_h_fim:
-            hora_prev_fim = st.time_input("Hora de Fim", datetime.now().time(), key="h_fim")
-        previsao_fim_dt = datetime.combine(data_prev_fim, hora_prev_fim)
-
-        if user.get('role', '').lower().startswith('admin'):
-            modo_simulacao = st.checkbox("Modo de Simulação (Recomendado para Testes)", value=True)
-        else:
-            modo_simulacao = False
-
-        submit_ae = st.form_submit_button("🚀 Iniciar Monitoramento de Viagem", use_container_width=True)
-
-        if submit_ae:
-            cpf_final  = st.session_state.get("ae_cpf", "")
-            placa_final = st.session_state.get("ae_placa", "")
-            placa_carreta_final = st.session_state.get("ae_placa_carreta", "")
-            cpf_digits  = ''.join(filter(str.isdigit, cpf_final))
-            placa_limpa = placa_final.replace("-", "").strip()
-
-            if not cpf_digits or len(cpf_digits) < 3:
-                st.error("⚠️ O CPF do motorista é obrigatório.")
-            elif len(placa_limpa) != 7:
-                st.error("⚠️ A placa do cavalo é obrigatória e deve ter 7 dígitos.")
-            elif previsao_fim_dt <= previsao_inicio_dt:
-                st.error("❌ A previsão de fim deve ser posterior à previsão de início.")
-            else:
-                dados_ae = {
-                    "cpf_motorista": cpf_final,
-                    "placa_cavalo": placa_final,
-                    "placa_carreta": placa_carreta_final,
-                    "origem_nome": nome_origem,
-                    "destino_nome": nome_destino,
-                    "cd_cidade_origem": cd_cidade_origem,
-                    "cd_cidade_destino": cd_cidade_destino,
-                    "cnpj_origem": cnpj_origem,
-                    "cnpj_destino": cnpj_destino,
-                    "valor_carga": valor_carga,
-                    "numero_isca": numero_isca,
-                    "previsao_inicio": previsao_inicio_dt,
-                    "previsao_fim": previsao_fim_dt,
-                    "cd_rota": cd_rota_final
-                }
-                import concurrent.futures
-                import time
-
-                with st.spinner("Registrando monitoramento..."):
-                    executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
-                    future = executor.submit(services.criar_ae_express, dados_ae, user['empresa_id'], user['id'], modo_simulacao)
-                    
-                    placeholder = st.empty()
-                    segundos = 0
-                    while not future.done():
-                        time.sleep(1)
-                        segundos += 1
-                        placeholder.markdown(
-                            f"<div style='text-align: center; color: #90a4ae; font-size: 0.9rem; font-weight: 600; margin-top: 10px; margin-bottom: 10px;'>"
-                            f"⏳ Aguardando retorno da Opentech... ({segundos}s / limite 180s)"
-                            f"</div>",
-                            unsafe_allow_html=True
-                        )
-                    
-                    placeholder.empty()
-                    try:
-                        sucesso, msg = future.result()
-                    except Exception as ex:
-                        sucesso, msg = False, f"Erro inesperado no processamento da thread: {str(ex)}"
-                    if sucesso:
-                        import re as _re
-                        _match = _re.search(r'AE\s*#?(\d+)', msg)
-                        if _match:
-                            st.session_state.ae_ultimo_cd_viagem = int(_match.group(1))
-                            st.session_state.ae_ultimo_dados = {
-                                "cpf_motorista": cpf_digits,
-                                "nome_motorista": st.session_state.get("ae_mot_nome", ""),
-                                "placa_cavalo": placa_limpa,
-                                "placa_carreta": placa_carreta_final,
-                                "origem": nome_origem,
-                                "destino": nome_destino,
-                                "valor_carga": valor_carga,
-                                "produto": "E-commerce",
-                                "numero_isca": numero_isca,
-                                "previsao_inicio": str(previsao_inicio_dt),
-                                "previsao_fim": str(previsao_fim_dt),
-                                "status": "Ativa (Simulada)" if modo_simulacao else "Ativa",
-                            }
-                        st.session_state.ae_mot_nome = None
-                        st.session_state.ae_veic_tipo = None
-                        st.session_state.ae_carreta_tipo = None
-                        st.session_state.ae_buscou_mot = False
-                        st.session_state.ae_buscou_veic = False
-                        st.session_state.ae_buscou_carreta = False
-                        if "ae_rotas_opcoes" in st.session_state:
-                            del st.session_state.ae_rotas_opcoes
-                        st.session_state.ae_form_open = False
-                        st.success(msg)
-                        st.rerun()
-                    else:
-                        st.error(msg)
+                    st.error(msg)
 
     st.divider()
     if st.button("Fechar / Cancelar", key="btn_fechar_modal_ae", use_container_width=True):
