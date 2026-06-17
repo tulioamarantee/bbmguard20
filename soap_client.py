@@ -580,15 +580,84 @@ def baixar_programacao(cd_programacao):
 
 def obter_rotas_modelo():
     """
-    Retorna todas as Rotas Modelo carregadas do arquivo local rotas_opentech.json.
+    Retorna todas as Rotas Modelo da Opentech.
+    Se o arquivo local rotas_opentech.json tiver mais de 6 horas (ou não existir),
+    busca automaticamente da API antes de retornar.
     """
-    import json
+    import json, os, time, re, requests
+    ARQUIVO  = "rotas_opentech.json"
+    MAX_IDADE_H = 6  # horas antes de recarregar da API
+
+    def _buscar_api():
+        """Busca rotas diretamente da Opentech e grava o arquivo local."""
+        try:
+            import config
+            chave = sgr_login()
+            if not chave:
+                return None
+            body = f"""<?xml version="1.0" encoding="utf-8"?>
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:tem="http://tempuri.org/">
+  <soapenv:Header/>
+  <soapenv:Body>
+    <tem:sgrRetornaRotasModelo>
+      <tem:chaveAcesso>{chave}</tem:chaveAcesso>
+      <tem:cdpas>{config.CD_PAS}</tem:cdpas>
+      <tem:cdcliente>{config.CD_CLIENTE}</tem:cdcliente>
+    </tem:sgrRetornaRotasModelo>
+  </soapenv:Body>
+</soapenv:Envelope>"""
+            r = requests.post(
+                config.WS_URL,
+                data=body.encode('utf-8'),
+                headers={"Content-Type": "text/xml;charset=utf-8",
+                         "SOAPAction": '"http://tempuri.org/sgrRetornaRotasModelo"'},
+                timeout=60
+            )
+            if r.status_code != 200:
+                return None
+            blocks = re.findall(r"<RotaModelo[^>]*>(.*?)</RotaModelo>", r.text, re.DOTALL)
+            rotas = []
+            for b in blocks:
+                cd_rota = re.search(r"<cdRotaModelo>(.*?)</cdRotaModelo>", b)
+                ds_rota = re.search(r"<dsRotaModelo>(.*?)</dsRotaModelo>", b)
+                cd_orig = re.search(r"<cdCidOrigem>(.*?)</cdCidOrigem>", b)
+                cd_dest = re.search(r"<cdCidDestino>(.*?)</cdCidDestino>", b)
+                fl_sit  = re.search(r"<flSituacao>(.*?)</flSituacao>", b)
+                if fl_sit and fl_sit.group(1) == "true" and cd_rota and ds_rota:
+                    rotas.append({
+                        "cd_rota": int(cd_rota.group(1)),
+                        "ds_rota": ds_rota.group(1).strip(),
+                        "cd_cidade_origem":  int(cd_orig.group(1)) if cd_orig else 0,
+                        "cd_cidade_destino": int(cd_dest.group(1)) if cd_dest else 0,
+                    })
+            if rotas:
+                with open(ARQUIVO, "w", encoding="utf-8") as f:
+                    json.dump(rotas, f, indent=2, ensure_ascii=False)
+                return rotas
+        except Exception:
+            pass
+        return None
+
+    # Verificar se o arquivo existe e qual sua idade
+    precisa_atualizar = True
+    if os.path.exists(ARQUIVO):
+        idade_h = (time.time() - os.path.getmtime(ARQUIVO)) / 3600
+        precisa_atualizar = (idade_h > MAX_IDADE_H)
+
+    if precisa_atualizar:
+        rotas_api = _buscar_api()
+        if rotas_api:
+            return rotas_api
+        # Fallback: usa arquivo local se a API falhar
+        if not os.path.exists(ARQUIVO):
+            return {"error": "Arquivo de rotas não encontrado e API indisponível."}
+
     try:
-        with open("rotas_opentech.json", "r", encoding="utf-8") as f:
-            rotas = json.load(f)
-        return rotas
+        with open(ARQUIVO, "r", encoding="utf-8") as f:
+            return json.load(f)
     except Exception as e:
         return {"error": f"Erro ao ler rotas locais: {str(e)}"}
+
 
 
 def obter_dados_ae(cd_viagem):

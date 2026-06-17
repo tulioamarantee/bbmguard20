@@ -1058,10 +1058,28 @@ ESTADOS_BR = [
     "PA","PB","PE","PI","PR","RJ","RN","RO","RR","RS","SC","SE","SP","TO"
 ]
 
-@st.dialog("Solicitar Autorização de Embarque (AE)", width="large")
 def modal_criar_ae(user):
     import services
-    st.caption("Cadastre e ative uma Autorização de Embarque (AE) na Opentech usando o mínimo de dados.")
+    
+    st.markdown("""
+        <div style='background: linear-gradient(135deg, #1e293b, #0f172a); 
+                    padding: 20px; 
+                    border-radius: 12px; 
+                    border: 1.5px solid #0284c7; 
+                    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+                    margin-bottom: 20px;'>
+            <div style='display: flex; justify-content: space-between; align-items: center;'>
+                <div>
+                    <h3 style='color: #f8fafc; margin: 0; font-family: "Outfit", sans-serif; font-size: 18px; font-weight: 700;'>
+                        🚀 Painel de Solicitação de AE (Opentech)
+                    </h3>
+                    <p style='color: #38bdf8; margin: 4px 0 0 0; font-size: 12px;'>
+                        Registre e ative o monitoramento de viagem na Opentech de forma integrada e estável.
+                    </p>
+                </div>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
 
     def _format_cpf():
         val = st.session_state.get("ae_cpf", "")
@@ -1416,12 +1434,60 @@ def modal_criar_ae(user):
 
     submit_ae = st.button("🚀 Iniciar Monitoramento de Viagem", key="btn_submit_ae_express", use_container_width=True, type="primary")
 
+    # ── Resultado da submissão (abaixo do botão) ──
+    _res_ok  = st.session_state.get("ae_resultado_ok")
+    _res_msg = st.session_state.get("ae_resultado_msg", "")
+    if _res_msg and not st.session_state.get("ae_processando"):
+        if _res_ok:
+            _cd = st.session_state.get("ae_resultado_cd_viagem")
+            st.markdown(
+                f"<div style='background:linear-gradient(135deg,#1B4332,#2D6A4F);padding:16px 20px;"
+                f"border-radius:10px;border-left:6px solid #4CAF50;margin:12px 0;'>"
+                f"<span style='color:#D8F3DC;font-size:12px;font-weight:bold;letter-spacing:1px;'>✅ MONITORAMENTO INICIADO COM SUCESSO</span><br>"
+                f"<span style='color:white;font-weight:bold;font-size:22px;'>AE #{_cd}</span><br>"
+                f"<span style='color:#95D5B2;font-size:13px;'>{_res_msg}</span>"
+                f"</div>",
+                unsafe_allow_html=True
+            )
+            _col_pdf, _col_novo = st.columns([2, 1])
+            with _col_pdf:
+                if st.button("📄 Gerar PDF da AE", key="btn_pdf_inline", use_container_width=True, type="primary"):
+                    with st.spinner("Gerando PDF..."):
+                        _pdf_bytes = services.gerar_pdf_ae(_cd, st.session_state.get("ae_resultado_dados", {}))
+                    if _pdf_bytes:
+                        st.download_button(
+                            label=f"⬇️ Baixar AE #{_cd}.pdf",
+                            data=_pdf_bytes,
+                            file_name=f"AE_{_cd}_BBMRisk.pdf",
+                            mime="application/pdf",
+                            use_container_width=True,
+                            key="dl_pdf_inline"
+                        )
+                    else:
+                        st.error("Não foi possível gerar o PDF.")
+            with _col_novo:
+                if st.button("➕ Nova AE", key="btn_nova_ae_inline", use_container_width=True):
+                    for _k in ["ae_cpf","ae_placa","ae_placa_carreta","ae_numero_isca",
+                               "ae_mot_nome","ae_veic_tipo","ae_carreta_tipo",
+                               "ae_buscou_mot","ae_buscou_veic","ae_buscou_carreta",
+                               "ae_resultado_ok","ae_resultado_msg","ae_resultado_cd_viagem","ae_resultado_dados"]:
+                        st.session_state.pop(_k, None)
+                    if "ae_rotas_opcoes" in st.session_state:
+                        del st.session_state.ae_rotas_opcoes
+                    st.rerun()
+        else:
+            st.error(f"❌ Erro: {_res_msg}")
+            if st.button("🔄 Tentar novamente", key="btn_retry_ae", use_container_width=True):
+                st.session_state.pop("ae_resultado_ok", None)
+                st.session_state.pop("ae_resultado_msg", None)
+                st.rerun()
+
     if submit_ae:
-        cpf_final  = st.session_state.get("ae_cpf", "")
-        placa_final = st.session_state.get("ae_placa", "")
+        cpf_final           = st.session_state.get("ae_cpf", "")
+        placa_final         = st.session_state.get("ae_placa", "")
         placa_carreta_final = st.session_state.get("ae_placa_carreta", "")
-        cpf_digits  = ''.join(filter(str.isdigit, cpf_final))
-        placa_limpa = placa_final.replace("-", "").strip()
+        cpf_digits          = ''.join(filter(str.isdigit, cpf_final))
+        placa_limpa         = placa_final.replace("-", "").strip()
 
         if not cpf_digits or len(cpf_digits) < 3:
             st.error("⚠️ O CPF do motorista é obrigatório.")
@@ -1431,77 +1497,175 @@ def modal_criar_ae(user):
             st.error("❌ A previsão de fim deve ser posterior à previsão de início.")
         else:
             dados_ae = {
-                "cpf_motorista": cpf_final,
-                "placa_cavalo": placa_final,
-                "placa_carreta": placa_carreta_final,
-                "origem_nome": nome_origem,
-                "destino_nome": nome_destino,
+                "cpf_motorista":    cpf_final,
+                "placa_cavalo":     placa_final,
+                "placa_carreta":    placa_carreta_final,
+                "origem_nome":      nome_origem,
+                "destino_nome":     nome_destino,
                 "cd_cidade_origem": cd_cidade_origem,
-                "cd_cidade_destino": cd_cidade_destino,
-                "cnpj_origem": cnpj_origem,
-                "cnpj_destino": cnpj_destino,
-                "valor_carga": valor_carga,
-                "numero_isca": numero_isca,
-                "previsao_inicio": previsao_inicio_dt,
-                "previsao_fim": previsao_fim_dt,
-                "cd_rota": cd_rota_final
+                "cd_cidade_destino":cd_cidade_destino,
+                "cnpj_origem":      cnpj_origem,
+                "cnpj_destino":     cnpj_destino,
+                "valor_carga":      valor_carga,
+                "numero_isca":      numero_isca,
+                "previsao_inicio":  previsao_inicio_dt,
+                "previsao_fim":     previsao_fim_dt,
+                "cd_rota":          cd_rota_final
             }
-            import concurrent.futures
-            import time
+            # Limpar resultado anterior antes de nova tentativa
+            st.session_state.pop("ae_resultado_ok", None)
+            st.session_state.pop("ae_resultado_msg", None)
+            st.session_state.pop("ae_resultado_cd_viagem", None)
+            st.session_state.pop("ae_resultado_dados", None)
+            # Salvar dados e setar flag de processamento
+            st.session_state.ae_processando          = True
+            st.session_state.ae_dados_pendentes      = dados_ae
+            st.session_state.ae_modo_sim_pendente    = modo_simulacao
+            st.session_state.ae_user_eid_pendente    = user['empresa_id']
+            st.session_state.ae_user_id_pendente     = user['id']
+            st.session_state.ae_nome_origem_pendente = nome_origem
+            st.session_state.ae_nome_destino_pendente= nome_destino
+            st.session_state.ae_placa_limpa_pendente = placa_limpa
+            st.session_state.ae_placa_carreta_pend   = placa_carreta_final
+            st.session_state.ae_valor_carga_pend     = valor_carga
+            st.session_state.ae_isca_pend            = numero_isca
+            st.session_state.ae_prev_ini_pend        = str(previsao_inicio_dt)
+            st.session_state.ae_prev_fim_pend        = str(previsao_fim_dt)
+            st.rerun()
 
-            with st.spinner("Registrando monitoramento..."):
-                executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
-                future = executor.submit(services.criar_ae_express, dados_ae, user['empresa_id'], user['id'], modo_simulacao)
-                
-                placeholder = st.empty()
-                segundos = 0
-                while not future.done():
-                    time.sleep(1)
-                    segundos += 1
-                    placeholder.markdown(
-                        f"<div style='text-align: center; color: #90a4ae; font-size: 0.9rem; font-weight: 600; margin-top: 10px; margin-bottom: 10px;'>"
-                        f"⏳ Aguardando retorno da Opentech... ({segundos}s / limite 180s)"
-                        f"</div>",
-                        unsafe_allow_html=True
-                    )
-                
-                placeholder.empty()
-                try:
-                    sucesso, msg = future.result()
-                except Exception as ex:
-                    sucesso, msg = False, f"Erro inesperado no processamento da thread: {str(ex)}"
-                if sucesso:
-                    import re as _re
-                    _match = _re.search(r'AE\s*#?(\d+)', msg)
-                    if _match:
-                        st.session_state.ae_ultimo_cd_viagem = int(_match.group(1))
-                        st.session_state.ae_ultimo_dados = {
-                            "cpf_motorista": cpf_digits,
-                            "nome_motorista": st.session_state.get("ae_mot_nome", ""),
-                            "placa_cavalo": placa_limpa,
-                            "placa_carreta": placa_carreta_final,
-                            "origem": nome_origem,
-                            "destino": nome_destino,
-                            "valor_carga": valor_carga,
-                            "produto": "E-commerce",
-                            "numero_isca": numero_isca,
-                            "previsao_inicio": str(previsao_inicio_dt),
-                            "previsao_fim": str(previsao_fim_dt),
-                            "status": "Ativa (Simulada)" if modo_simulacao else "Ativa",
-                        }
-                    st.session_state.ae_mot_nome = None
-                    st.session_state.ae_veic_tipo = None
-                    st.session_state.ae_carreta_tipo = None
-                    st.session_state.ae_buscou_mot = False
-                    st.session_state.ae_buscou_veic = False
-                    st.session_state.ae_buscou_carreta = False
-                    if "ae_rotas_opcoes" in st.session_state:
-                        del st.session_state.ae_rotas_opcoes
-                    st.session_state.ae_form_open = False
-                    st.success(msg)
-                    st.rerun()
-                else:
-                    st.error(msg)
+    # ── Lançar thread SOAP ao clicar submit ──────────────────────────────────
+    if st.session_state.get("ae_processando") and not st.session_state.get("ae_job_id"):
+        import threading, uuid, json as _json, os as _os
+        st.session_state.ae_processando = False
+
+        _job_id   = str(uuid.uuid4())
+        _job_file = _os.path.join("scratch", f"ae_job_{_job_id}.json")
+        _os.makedirs("scratch", exist_ok=True)
+
+        # Capturar dados pendentes AGORA (antes da thread começar)
+        _dados_ae_thr = dict(st.session_state.get("ae_dados_pendentes", {}))
+        _eid_thr      = st.session_state.get("ae_user_eid_pendente")
+        _uid_thr      = st.session_state.get("ae_user_id_pendente")
+        _sim_thr      = st.session_state.get("ae_modo_sim_pendente", False)
+        _orig_thr     = st.session_state.get("ae_nome_origem_pendente", "")
+        _dest_thr     = st.session_state.get("ae_nome_destino_pendente", "")
+        _placa_thr    = st.session_state.get("ae_placa_limpa_pendente", "")
+        _carreta_thr  = st.session_state.get("ae_placa_carreta_pend", "")
+        _val_thr      = st.session_state.get("ae_valor_carga_pend", 0.0)
+        _isca_thr     = st.session_state.get("ae_isca_pend", "")
+        _ini_thr      = st.session_state.get("ae_prev_ini_pend", "")
+        _fim_thr      = st.session_state.get("ae_prev_fim_pend", "")
+        _nom_mot_thr  = st.session_state.get("ae_mot_nome", "")
+
+        def _executar_soap():
+            try:
+                _sucesso, _msg = services.criar_ae_express(_dados_ae_thr, _eid_thr, _uid_thr, _sim_thr)
+            except Exception as _ex:
+                _sucesso, _msg = False, f"Erro inesperado: {str(_ex)}"
+            import re as _re2, json as _j2, os as _o2
+            _m = _re2.search(r'AE\s*#?(\d+)', _msg)
+            _cd = int(_m.group(1)) if _m else None
+            _o2.makedirs("scratch", exist_ok=True)
+            with open(_job_file, "w", encoding="utf-8") as _fp:
+                _j2.dump({
+                    "sucesso": _sucesso, "msg": _msg, "cd_viagem": _cd,
+                    "cpf":  ''.join(filter(str.isdigit, _dados_ae_thr.get("cpf_motorista", ""))),
+                    "nome_motorista": _nom_mot_thr,
+                    "placa_cavalo":   _placa_thr,   "placa_carreta": _carreta_thr,
+                    "origem": _orig_thr,             "destino": _dest_thr,
+                    "valor_carga": _val_thr,         "numero_isca": _isca_thr,
+                    "previsao_inicio": _ini_thr,     "previsao_fim": _fim_thr,
+                    "modo_sim": _sim_thr,
+                }, _fp)
+
+        _t = threading.Thread(target=_executar_soap, daemon=True)
+        _t.start()
+
+        # Guardar apenas o job_id (string simples — sobrevive a qualquer rerun)
+        st.session_state.ae_job_id   = _job_id
+        st.session_state.ae_job_file = _job_file
+        st.session_state.ae_poll_secs = 0
+        # Limpar chaves pendentes (já capturadas acima)
+        for _k in ["ae_dados_pendentes","ae_modo_sim_pendente","ae_user_eid_pendente",
+                   "ae_user_id_pendente","ae_nome_origem_pendente","ae_nome_destino_pendente",
+                   "ae_placa_limpa_pendente","ae_placa_carreta_pend","ae_valor_carga_pend",
+                   "ae_isca_pend","ae_prev_ini_pend","ae_prev_fim_pend"]:
+            st.session_state.pop(_k, None)
+        st.rerun()
+
+    # ── Polling: verificar arquivo de resultado a cada 1s ────────────────────
+    if st.session_state.get("ae_job_id"):
+        import os as _os2, json as _json2, time as _time2
+        _job_file2 = st.session_state.get("ae_job_file",
+                     _os2.path.join("scratch", f"ae_job_{st.session_state.ae_job_id}.json"))
+
+        if _os2.path.exists(_job_file2):
+            # ── Resultado pronto ──────────────────────────────────────────────
+            with open(_job_file2, "r", encoding="utf-8") as _fp2:
+                _res = _json2.load(_fp2)
+            try:
+                _os2.remove(_job_file2)   # limpar arquivo temporário
+            except Exception:
+                pass
+
+            st.session_state.pop("ae_job_id", None)
+            st.session_state.pop("ae_job_file", None)
+            st.session_state.pop("ae_poll_secs", None)
+
+            if _res["sucesso"]:
+                _cd_viagem_res = _res.get("cd_viagem")
+                _dados_res = {
+                    "cpf_motorista":  _res.get("cpf", ""),
+                    "nome_motorista": _res.get("nome_motorista", ""),
+                    "placa_cavalo":   _res.get("placa_cavalo", ""),
+                    "placa_carreta":  _res.get("placa_carreta", ""),
+                    "origem":         _res.get("origem", ""),
+                    "destino":        _res.get("destino", ""),
+                    "valor_carga":    _res.get("valor_carga", 0.0),
+                    "produto":        "E-commerce",
+                    "numero_isca":    _res.get("numero_isca", ""),
+                    "previsao_inicio": _res.get("previsao_inicio", ""),
+                    "previsao_fim":    _res.get("previsao_fim", ""),
+                    "status":         "Ativa (Simulada)" if _res.get("modo_sim") else "Ativa",
+                }
+                if _cd_viagem_res:
+                    st.session_state.ae_ultimo_cd_viagem = _cd_viagem_res
+                    st.session_state.ae_ultimo_dados     = _dados_res
+                st.session_state.ae_mot_nome       = None
+                st.session_state.ae_veic_tipo      = None
+                st.session_state.ae_carreta_tipo   = None
+                st.session_state.ae_buscou_mot     = False
+                st.session_state.ae_buscou_veic    = False
+                st.session_state.ae_buscou_carreta = False
+                st.session_state.pop("ae_rotas_opcoes", None)
+                st.session_state.ae_resultado_ok         = True
+                st.session_state.ae_resultado_msg        = _res["msg"]
+                st.session_state.ae_resultado_cd_viagem  = _cd_viagem_res
+                st.session_state.ae_resultado_dados      = _dados_res
+                st.session_state.ae_form_open            = True  # garantir popup aberto
+            else:
+                st.session_state.ae_resultado_ok         = False
+                st.session_state.ae_resultado_msg        = _res["msg"]
+                st.session_state.ae_resultado_cd_viagem  = None
+                st.session_state.ae_form_open            = True  # garantir popup aberto
+            st.rerun()
+        else:
+            # ── Ainda processando ─────────────────────────────────────────────
+            _elapsed = int(st.session_state.get("ae_poll_secs", 0))
+            st.session_state.ae_poll_secs = _elapsed + 1
+            st.session_state.ae_form_open = True  # garantir popup aberto durante processamento
+            st.markdown(
+                f"<div style='text-align:center; padding:24px 0 8px 0;'>"
+                f"<span style='font-size:2.2rem;'>⏳</span><br>"
+                f"<span style='color:#90a4ae; font-size:1rem; font-weight:600;'>"
+                f"Registrando na Opentech... ({_elapsed}s)<br>"
+                f"<span style='font-size:0.82rem; font-weight:400;'>"
+                f"Por favor aguarde, não feche esta janela.</span>"
+                f"</span></div>",
+                unsafe_allow_html=True
+            )
+            _time2.sleep(1)
+            st.rerun()
 
     st.divider()
     if st.button("Fechar / Cancelar", key="btn_fechar_modal_ae", use_container_width=True):
@@ -1585,8 +1749,9 @@ def render_ae_express(user):
             st.session_state.ae_form_open = True
             st.rerun()
 
-    if st.session_state.ae_form_open:
+    if st.session_state.ae_form_open or st.session_state.get("ae_processando"):
         modal_criar_ae(user)
+
 
     # ── Download PDF da última AE criada ──
     if "ae_ultimo_cd_viagem" in st.session_state and st.session_state.ae_ultimo_cd_viagem:

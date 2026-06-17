@@ -1550,7 +1550,6 @@ def criar_ae_express(dados, empresa_id, usuario_id, modo_simulacao=False):
         cursor = conn.cursor()
         agora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         try:
-            listar_viagens.clear()
             cursor.execute('''
                 INSERT INTO viagens (cd_programacao, cd_viagem, cpf_motorista, nome_motorista, placa_cavalo, placa_carreta, 
                                      origem, destino, valor_carga, produto, previsao_inicio, previsao_fim, numero_isca, status, data_criacao, empresa_id, usuario_id)
