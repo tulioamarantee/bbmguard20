@@ -184,44 +184,89 @@ def render_home(user):
         line-height: 1.6;
     }
     
-    /* CSS MAGIC para os botoes nativos do Streamlit virarem cards modernos */
-    .stApp div.stButton > button {
-        background-color: var(--secondary-background-color) !important;
-        border-radius: 16px !important;
-        padding: 2rem !important;
-        height: 180px !important;
+    /* CSS Avançado usando :has() para estilizar os botões da Home como cards premium */
+    div[data-testid="stElementContainer"]:has(.card-trigger-portaria, .card-trigger-embarque, .card-trigger-torre, .card-trigger-dashboard, .card-trigger-config) + div[data-testid="stElementContainer"] div.stButton > button {
+        border-radius: 20px !important;
+        padding: 2.2rem 1.8rem !important;
+        height: 195px !important;
         width: 100% !important;
-        border: 1px solid rgba(128, 128, 128, 0.2) !important;
-        color: var(--text-color) !important;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.05) !important;
-        transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+        border: 1px solid rgba(255, 255, 255, 0.12) !important;
+        color: #FFFFFF !important;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.15) !important;
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
         display: flex !important;
         flex-direction: column !important;
         align-items: center !important;
         justify-content: center !important;
     }
     
-    .stApp div.stButton > button:hover {
-        transform: translateY(-8px) !important;
-        box-shadow: 0 15px 30px rgba(0,0,0,0.15) !important;
-        border-color: var(--primary-color) !important;
+    /* Hover geral para os cards da home */
+    div[data-testid="stElementContainer"]:has(.card-trigger-portaria, .card-trigger-embarque, .card-trigger-torre, .card-trigger-dashboard, .card-trigger-config) + div[data-testid="stElementContainer"] div.stButton > button:hover {
+        transform: translateY(-10px) !important;
+        border-color: rgba(255, 255, 255, 0.35) !important;
     }
-    
-    .stApp div.stButton > button p {
+
+    /* Estilo dos textos e ícones dentro dos botões na Home */
+    div[data-testid="stElementContainer"]:has(.card-trigger-portaria, .card-trigger-embarque, .card-trigger-torre, .card-trigger-dashboard, .card-trigger-config) + div[data-testid="stElementContainer"] div.stButton > button p {
         font-family: 'Inter', sans-serif !important;
-        font-size: 1.3rem !important;
+        font-size: 1.25rem !important;
         font-weight: 700 !important;
-        color: var(--text-color) !important;
+        color: #FFFFFF !important;
         text-align: center !important;
         margin: 0 !important;
+        white-space: pre-wrap !important;
+        line-height: 1.5 !important;
+        letter-spacing: 0.5px !important;
     }
     
-    /* Botão Desabilitado */
-    .stApp div.stButton > button:disabled {
-        opacity: 0.5 !important;
+    /* Cores e Sombras Específicas para cada Card */
+    /* 1. Portaria e Consulta (Teal / Ocean) */
+    div[data-testid="stElementContainer"]:has(.card-trigger-portaria) + div[data-testid="stElementContainer"] div.stButton > button {
+        background: linear-gradient(135deg, #1B3B6F, #028090) !important;
+    }
+    div[data-testid="stElementContainer"]:has(.card-trigger-portaria) + div[data-testid="stElementContainer"] div.stButton > button:hover {
+        box-shadow: 0 18px 35px rgba(2, 128, 144, 0.45) !important;
+    }
+
+    /* 2. Solicitação de Monitoramento (Royal Purple / Indigo) */
+    div[data-testid="stElementContainer"]:has(.card-trigger-embarque) + div[data-testid="stElementContainer"] div.stButton > button {
+        background: linear-gradient(135deg, #3A0CA3, #7209B7) !important;
+    }
+    div[data-testid="stElementContainer"]:has(.card-trigger-embarque) + div[data-testid="stElementContainer"] div.stButton > button:hover {
+        box-shadow: 0 18px 35px rgba(114, 9, 183, 0.45) !important;
+    }
+
+    /* 3. Torre de Controle (Forest Teal / Jade) */
+    div[data-testid="stElementContainer"]:has(.card-trigger-torre) + div[data-testid="stElementContainer"] div.stButton > button {
+        background: linear-gradient(135deg, #005F73, #0A9396) !important;
+    }
+    div[data-testid="stElementContainer"]:has(.card-trigger-torre) + div[data-testid="stElementContainer"] div.stButton > button:hover {
+        box-shadow: 0 18px 35px rgba(10, 147, 150, 0.45) !important;
+    }
+
+    /* 4. Dashboard (Dark Slate / Charcoal) */
+    div[data-testid="stElementContainer"]:has(.card-trigger-dashboard) + div[data-testid="stElementContainer"] div.stButton > button {
+        background: linear-gradient(135deg, #0D1B2A, #243046) !important;
+    }
+    div[data-testid="stElementContainer"]:has(.card-trigger-dashboard) + div[data-testid="stElementContainer"] div.stButton > button:hover {
+        box-shadow: 0 18px 35px rgba(36, 48, 70, 0.45) !important;
+    }
+
+    /* 5. Configurações (Steel Grey / Metal) */
+    div[data-testid="stElementContainer"]:has(.card-trigger-config) + div[data-testid="stElementContainer"] div.stButton > button {
+        background: linear-gradient(135deg, #2B2D42, #758197) !important;
+    }
+    div[data-testid="stElementContainer"]:has(.card-trigger-config) + div[data-testid="stElementContainer"] div.stButton > button:hover {
+        box-shadow: 0 18px 35px rgba(117, 129, 151, 0.45) !important;
+    }
+
+    /* Comportamento de botões desabilitados na Home */
+    div[data-testid="stElementContainer"]:has(.card-trigger-portaria, .card-trigger-embarque, .card-trigger-torre, .card-trigger-dashboard, .card-trigger-config) + div[data-testid="stElementContainer"] div.stButton > button:disabled {
+        opacity: 0.55 !important;
         filter: grayscale(100%) !important;
         transform: none !important;
         box-shadow: none !important;
+        border-color: rgba(128, 128, 128, 0.2) !important;
     }
     </style>
     
@@ -234,6 +279,7 @@ def render_home(user):
     col1, col2, col3 = st.columns(3)
     
     with col1:
+        st.markdown('<div class="card-trigger-portaria"></div>', unsafe_allow_html=True)
         st.button(
             "📋\nPORTARIA E CONSULTA",
             key="btn_cadastro",
@@ -243,6 +289,7 @@ def render_home(user):
         )
             
     with col2:
+        st.markdown('<div class="card-trigger-embarque"></div>', unsafe_allow_html=True)
         st.button(
             "📝\nSOLICITAR AUTORIZAÇÃO DE EMBARQUE",
             key="btn_monitoramento",
@@ -253,6 +300,7 @@ def render_home(user):
             
     with col3:
         role = (user.get('role') or '').lower()
+        st.markdown('<div class="card-trigger-torre"></div>', unsafe_allow_html=True)
         if role == 'portaria':
             st.button(
                 "🗺️\nTORRE DE CONTROLE\n(Acesso Restrito)",
@@ -268,13 +316,14 @@ def render_home(user):
                 on_click=set_menu,
                 args=("Torre de Controle",)
             )
-
+ 
     role = (user.get('role') or '').lower()
     if role in ['admin', 'admin_ti', 'supervisor']:
         st.markdown("<h3 style='text-align: center; margin-top: 3rem; margin-bottom: 1.5rem; font-family: \"Inter\", sans-serif; font-size: 1.5rem;'>Módulos Gerenciais</h3>", unsafe_allow_html=True)
         col4, col5, col6 = st.columns(3)
         with col4:
             if role.startswith('admin'):
+                st.markdown('<div class="card-trigger-dashboard"></div>', unsafe_allow_html=True)
                 st.button(
                     "📊\nDASHBOARD",
                     key="btn_dash",
@@ -283,6 +332,7 @@ def render_home(user):
                     args=("Dashboard",)
                 )
         with col5:
+            st.markdown('<div class="card-trigger-config"></div>', unsafe_allow_html=True)
             st.button(
                 "⚙️\nCONFIGURAÇÕES",
                 key="btn_config",
@@ -290,6 +340,7 @@ def render_home(user):
                 on_click=set_menu,
                 args=("Configurações",)
             )
+
 def render_cadastro_consulta(user):
     st.header("📋 Cadastro e Consulta")
     st.caption("Gerenciamento integrado de Motoristas e Veículos.")
