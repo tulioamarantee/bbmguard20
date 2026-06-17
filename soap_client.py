@@ -9,7 +9,7 @@ import streamlit as st
 
 logger = logging.getLogger("soap_client")
 
-def post_soap(action, body):
+def post_soap(action, body, timeout=60):
     headers = {
         "Content-Type": "text/xml; charset=utf-8",
         "SOAPAction": f'"http://tempuri.org/{action}"'
@@ -19,7 +19,7 @@ def post_soap(action, body):
     with open(f"scratch/soap_body_debug_{action}.xml", "w", encoding="utf-8") as f:
         f.write(body)
     try:
-        r = requests.post(WS_URL, data=body.encode("utf-8"), headers=headers, timeout=60)
+        r = requests.post(WS_URL, data=body.encode("utf-8"), headers=headers, timeout=timeout)
         with open("scratch/soap_debug.log", "w", encoding="utf-8") as f:
             f.write(r.text)
         r.raise_for_status()
@@ -838,7 +838,7 @@ def gerar_ae_v9(dados):
   </soapenv:Body>
 </soapenv:Envelope>"""
 
-    resp = post_soap("sgrGerarAEv9", body)
+    resp = post_soap("sgrGerarAEv9", body, timeout=180)
     if not resp:
         return {"error": "Sem resposta da OpenTech ao gerar AE"}
 

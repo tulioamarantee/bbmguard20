@@ -1447,8 +1447,27 @@ def modal_criar_ae(user):
                     "previsao_fim": previsao_fim_dt,
                     "cd_rota": cd_rota_final
                 }
+                import concurrent.futures
+                import time
+
                 with st.spinner("Registrando monitoramento..."):
-                    sucesso, msg = services.criar_ae_express(dados_ae, user['empresa_id'], user['id'], modo_simulacao)
+                    executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+                    future = executor.submit(services.criar_ae_express, dados_ae, user['empresa_id'], user['id'], modo_simulacao)
+                    
+                    placeholder = st.empty()
+                    segundos = 0
+                    while not future.done():
+                        time.sleep(1)
+                        segundos += 1
+                        placeholder.markdown(
+                            f"<div style='text-align: center; color: #90a4ae; font-size: 0.9rem; font-weight: 600; margin-top: 10px; margin-bottom: 10px;'>"
+                            f"⏳ Aguardando retorno da Opentech... ({segundos}s / limite 180s)"
+                            f"</div>",
+                            unsafe_allow_html=True
+                        )
+                    
+                    placeholder.empty()
+                    sucesso, msg = future.result()
                     if sucesso:
                         import re as _re
                         _match = _re.search(r'AE\s*#?(\d+)', msg)
