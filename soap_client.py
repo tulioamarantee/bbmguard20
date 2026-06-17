@@ -5,6 +5,7 @@ import logging
 from datetime import datetime
 from config import WS_URL, WS_USUARIO, WS_SENHA, WS_DOMINIO, CD_PAS, CD_CLIENTE, get_status_label
 import json
+import streamlit as st
 
 logger = logging.getLogger("soap_client")
 
@@ -58,6 +59,7 @@ def find_text(xml_string, tag, parent_tag=None):
     except Exception:
         return None
 
+@st.cache_data(ttl=600, show_spinner=False)
 def sgr_login():
     body = f"""<?xml version="1.0" encoding="utf-8"?>
 <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:tem="http://tempuri.org/">

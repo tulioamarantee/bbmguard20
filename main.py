@@ -688,7 +688,8 @@ def render_config(user):
                 else:
                     st.info("Nenhum dado de produtividade encontrado ou ocorreu um erro na busca.")
 
-def render_form_cadastro_sil(user):
+@st.dialog("Novo Cadastro de Motorista (SIL / Massa)")
+def modal_cadastro_sil(user):
     with st.form("cadastro_motorista_modal", clear_on_submit=True):
         cpf = st.text_input("Informe o CPF do Motorista")
         st.caption("Pressione 'Consultar e Cadastrar' para incluir. O campo será limpo para o próximo CPF.")
@@ -733,6 +734,11 @@ def render_form_cadastro_sil(user):
                     st.error(msg)
         elif submit_import and not uploaded_file:
             st.warning("Selecione um arquivo antes de iniciar a importação.")
+            
+    st.divider()
+    if st.button("Fechar", key="btn_fechar_modal_mot", use_container_width=True):
+        st.session_state.mot_form_open = False
+        st.rerun()
 
 def fazer_consulta_sil(cpf, user):
     with st.spinner("Consultando Opentech..."):
@@ -762,15 +768,12 @@ def render_motoristas(user):
         st.session_state.mot_form_open = False
         
     with col_btn:
-        texto_btn = "✖ Fechar Cadastro" if st.session_state.mot_form_open else "➕ Novo Cadastro (SIL)"
-        if st.button(texto_btn, use_container_width=True, type="secondary" if st.session_state.mot_form_open else "primary"):
-            st.session_state.mot_form_open = not st.session_state.mot_form_open
+        if st.button("➕ Novo Cadastro (SIL)", use_container_width=True, type="primary"):
+            st.session_state.mot_form_open = True
             st.rerun()
             
     if st.session_state.mot_form_open:
-        with st.container(border=True):
-            st.subheader("Novo Cadastro via SIL Opentech")
-            render_form_cadastro_sil(user)
+        modal_cadastro_sil(user)
             
     busca = st.text_input("🔎 Consultar CPF ou Nome do Motorista")
     
@@ -836,15 +839,12 @@ def render_veiculos(user):
         st.session_state.veic_form_open = False
         
     with col_btn:
-        texto_btn = "✖ Fechar Cadastro" if st.session_state.veic_form_open else "➕ Novo Cadastro de Veículo"
-        if st.button(texto_btn, use_container_width=True, type="secondary" if st.session_state.veic_form_open else "primary"):
-            st.session_state.veic_form_open = not st.session_state.veic_form_open
+        if st.button("➕ Novo Cadastro de Veículo", use_container_width=True, type="primary"):
+            st.session_state.veic_form_open = True
             st.rerun()
             
     if st.session_state.veic_form_open:
-        with st.container(border=True):
-            st.subheader("Novo Cadastro de Veículo (SIL)")
-            render_form_cadastro_veiculo(user)
+        modal_cadastro_veiculo(user)
             
     busca = st.text_input("🔎 Consultar Placa")
     
@@ -926,7 +926,8 @@ def render_veiculos(user):
     else:
         if busca: st.warning("Veículo não encontrado.")
 
-def render_form_cadastro_veiculo(user):
+@st.dialog("Novo Cadastro de Veículo (SIL / Massa)")
+def modal_cadastro_veiculo(user):
     with st.form("cadastro_veiculo_modal", clear_on_submit=True):
         placa = st.text_input("Informe a Placa do Veículo")
         st.caption("Pressione 'Consultar e Cadastrar' para incluir. O campo será limpo para a próxima placa.")
@@ -983,6 +984,11 @@ def render_form_cadastro_veiculo(user):
                     st.error(msg)
         elif submit_import and not uploaded_file:
             st.warning("Selecione um arquivo antes de iniciar a importação.")
+            
+    st.divider()
+    if st.button("Fechar", key="btn_fechar_modal_veic", use_container_width=True):
+        st.session_state.veic_form_open = False
+        st.rerun()
 
 
 @st.cache_data
@@ -1001,7 +1007,8 @@ ESTADOS_BR = [
     "PA","PB","PE","PI","PR","RJ","RN","RO","RR","RS","SC","SE","SP","TO"
 ]
 
-def render_form_criar_ae(user):
+@st.dialog("Solicitar Autorização de Embarque (AE)", width="large")
+def modal_criar_ae(user):
     import services
     st.caption("Cadastre e ative uma Autorização de Embarque (AE) na Opentech usando o mínimo de dados.")
 
@@ -1424,6 +1431,19 @@ def render_form_criar_ae(user):
                     else:
                         st.error(msg)
 
+    st.divider()
+    if st.button("Fechar / Cancelar", key="btn_fechar_modal_ae", use_container_width=True):
+        st.session_state.ae_form_open = False
+        st.session_state.ae_mot_nome = None
+        st.session_state.ae_veic_tipo = None
+        st.session_state.ae_carreta_tipo = None
+        st.session_state.ae_buscou_mot = False
+        st.session_state.ae_buscou_veic = False
+        st.session_state.ae_buscou_carreta = False
+        if "ae_rotas_opcoes" in st.session_state:
+            del st.session_state.ae_rotas_opcoes
+        st.rerun()
+
 
 
 def render_ae_express(user):
@@ -1482,16 +1502,19 @@ def render_ae_express(user):
         if "ae_form_open" not in st.session_state:
             st.session_state.ae_form_open = False
             
-        texto_btn = "✖ Fechar Formulário" if st.session_state.ae_form_open else "➕ Novo Monitoramento"
-        if st.button(texto_btn, type="secondary" if st.session_state.ae_form_open else "primary", use_container_width=True):
-            st.session_state.ae_form_open = not st.session_state.ae_form_open
+        if st.button("➕ Novo Monitoramento", type="primary", use_container_width=True):
+            # Limpar campos para um novo preenchimento limpo
+            for k in ["ae_cpf", "ae_placa", "ae_placa_carreta", "ae_numero_isca", 
+                      "ae_mot_nome", "ae_veic_tipo", "ae_carreta_tipo",
+                      "ae_buscou_mot", "ae_buscou_veic", "ae_buscou_carreta"]:
+                st.session_state[k] = None
+            if "ae_rotas_opcoes" in st.session_state:
+                del st.session_state.ae_rotas_opcoes
+            st.session_state.ae_form_open = True
             st.rerun()
 
     if st.session_state.ae_form_open:
-        with st.container(border=True):
-            st.subheader("➕ Novo Monitoramento")
-            render_form_criar_ae(user)
-            st.divider()
+        modal_criar_ae(user)
 
     # ── Download PDF da última AE criada ──
     if "ae_ultimo_cd_viagem" in st.session_state and st.session_state.ae_ultimo_cd_viagem:
