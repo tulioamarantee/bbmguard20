@@ -1427,16 +1427,16 @@ def criar_ae_express(dados, empresa_id, usuario_id, modo_simulacao=False):
     """
     import random
     
-    cpf_motorista = ''.join(filter(str.isdigit, dados["cpf_motorista"]))
-    placa_cavalo = dados["placa_cavalo"].upper().replace("-", "").strip()
-    placa_carreta = dados.get("placa_carreta", "").upper().replace("-", "").strip()
-    origem_nome = dados.get("origem_nome", "Cidade de Origem")
-    destino_nome = dados.get("destino_nome", "Cidade de Destino")
+    cpf_motorista = ''.join(filter(str.isdigit, dados.get("cpf_motorista") or ""))
+    placa_cavalo = (dados.get("placa_cavalo") or "").upper().replace("-", "").strip()
+    placa_carreta = (dados.get("placa_carreta") or "").upper().replace("-", "").strip()
+    origem_nome = dados.get("origem_nome") or "Cidade de Origem"
+    destino_nome = dados.get("destino_nome") or "Cidade de Destino"
     cd_cidade_origem = dados.get("cd_cidade_origem") or 9999
     cd_cidade_destino = dados.get("cd_cidade_destino") or 9999
     valor_carga = dados.get("valor_carga") or 1000.0
     produto = "E-commerce" # Fixado por regra do negócio
-    numero_isca = dados.get("numero_isca", "").strip()
+    numero_isca = (dados.get("numero_isca") or "").strip()
     
     previsao_inicio = dados.get("previsao_inicio") or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     previsao_fim = dados.get("previsao_fim") or (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S")
