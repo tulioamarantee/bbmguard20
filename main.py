@@ -688,8 +688,7 @@ def render_config(user):
                 else:
                     st.info("Nenhum dado de produtividade encontrado ou ocorreu um erro na busca.")
 
-@st.dialog("Novo Cadastro via SIL Opentech")
-def render_modal_cadastro_sil(user):
+def render_form_cadastro_sil(user):
     with st.form("cadastro_motorista_modal", clear_on_submit=True):
         cpf = st.text_input("Informe o CPF do Motorista")
         st.caption("Pressione 'Consultar e Cadastrar' para incluir. O campo será limpo para o próximo CPF.")
@@ -759,13 +758,19 @@ def render_motoristas(user):
     st.header("Controle de Portaria")
     
     col_t, col_btn = st.columns([3, 1])
-    abrir_modal = False
+    if "mot_form_open" not in st.session_state:
+        st.session_state.mot_form_open = False
+        
     with col_btn:
-        if st.button("➕ Novo Cadastro (SIL)", use_container_width=True):
-            abrir_modal = True
+        texto_btn = "✖ Fechar Cadastro" if st.session_state.mot_form_open else "➕ Novo Cadastro (SIL)"
+        if st.button(texto_btn, use_container_width=True, type="secondary" if st.session_state.mot_form_open else "primary"):
+            st.session_state.mot_form_open = not st.session_state.mot_form_open
+            st.rerun()
             
-    if abrir_modal:
-        render_modal_cadastro_sil(user)
+    if st.session_state.mot_form_open:
+        with st.container(border=True):
+            st.subheader("Novo Cadastro via SIL Opentech")
+            render_form_cadastro_sil(user)
             
     busca = st.text_input("🔎 Consultar CPF ou Nome do Motorista")
     
@@ -827,13 +832,19 @@ def render_veiculos(user):
     st.header("Controle de Mapa")
     
     col_t, col_btn = st.columns([3, 1])
-    abrir_modal = False
+    if "veic_form_open" not in st.session_state:
+        st.session_state.veic_form_open = False
+        
     with col_btn:
-        if st.button("➕ Novo Cadastro de Veículo", use_container_width=True):
-            abrir_modal = True
+        texto_btn = "✖ Fechar Cadastro" if st.session_state.veic_form_open else "➕ Novo Cadastro de Veículo"
+        if st.button(texto_btn, use_container_width=True, type="secondary" if st.session_state.veic_form_open else "primary"):
+            st.session_state.veic_form_open = not st.session_state.veic_form_open
+            st.rerun()
             
-    if abrir_modal:
-        render_modal_cadastro_veiculo(user)
+    if st.session_state.veic_form_open:
+        with st.container(border=True):
+            st.subheader("Novo Cadastro de Veículo (SIL)")
+            render_form_cadastro_veiculo(user)
             
     busca = st.text_input("🔎 Consultar Placa")
     
@@ -915,8 +926,7 @@ def render_veiculos(user):
     else:
         if busca: st.warning("Veículo não encontrado.")
 
-@st.dialog("Novo Cadastro de Veículo (SIL)")
-def render_modal_cadastro_veiculo(user):
+def render_form_cadastro_veiculo(user):
     with st.form("cadastro_veiculo_modal", clear_on_submit=True):
         placa = st.text_input("Informe a Placa do Veículo")
         st.caption("Pressione 'Consultar e Cadastrar' para incluir. O campo será limpo para a próxima placa.")
